@@ -1,0 +1,217 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="ur3_with_threefinger_gripper">
+  
+
+  <compiler angle="radian" meshdir="E:\project\p1\deepgelsight\xml" autolimits="true" boundmass="1e-6" boundinertia="1e-8" />
+
+  <option timestep="0.001" integrator="implicitfast" solver="Newton" iterations="150" ls_iterations="80" gravity="0 0 -9.81" cone="elliptic" impratio="2">
+    <flag multiccd="enable" />
+  </option>
+
+  <visual>
+    <headlight diffuse="1 1 1" ambient="0.45 0.45 0.45" specular="0.25 0.25 0.25" />
+  </visual>
+
+  <default>
+    <joint damping="1.0" armature="0.01" frictionloss="0.05" />
+    <geom condim="4" friction="0.8 0.02 0.001" solref="0.01 1" />
+
+    <default class="ur_visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" material="ur_blue" />
+    </default>
+
+    <default class="ur_collision">
+      <geom group="3" rgba="0.25 0.25 0.25 0.18" />
+    </default>
+  </default>
+
+  <asset>
+    <material name="table_leg_mat" rgba="0.18 0.18 0.18 1" /><material name="table_top_mat" rgba="0.55 0.36 0.20 1" />
+    <material name="ur_blue" rgba="0.18 0.45 0.67 1" />
+    <material name="ur_grey" rgba="0.65 0.67 0.69 1" />
+    <material name="gripper_green" rgba="0.0 0.42 0.22 1" />
+    <material name="gripper_base_mat" rgba="0.80 0.80 0.80 1" />
+
+    
+    <mesh name="base_mesh" file="base.stl" />
+    <mesh name="shoulder_mesh" file="shoulder.stl" />
+    <mesh name="upperarm_mesh" file="upperarm.stl" />
+    <mesh name="forearm_mesh" file="forearm.stl" />
+    <mesh name="wrist1_mesh" file="wrist1.stl" />
+    <mesh name="wrist2_mesh" file="wrist2.stl" />
+    <mesh name="wrist3_mesh" file="wrist3.stl" />
+
+    
+    <mesh name="gripper_base_mesh" file="gripperbase.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger1_mesh" file="link1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger2_mesh" file="link2.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger3_mesh" file="link3.stl" scale="0.001 0.001 0.001" />
+  <mesh name="tomato_visual_mesh" file="E:\project\p1\deepgelsight\object\ycb\mug\textured.obj" />
+    <mesh name="tomato_col0_mesh" file="E:\project\p1\deepgelsight\object\ycb\mug\textured_coacd_0.stl" />
+    <mesh name="tomato_col1_mesh" file="E:\project\p1\deepgelsight\object\ycb\mug\textured_coacd_1.stl" />
+    <mesh name="tomato_col2_mesh" file="E:\project\p1\deepgelsight\object\ycb\mug\textured_coacd_2.stl" />
+    <mesh name="tomato_col3_mesh" file="E:\project\p1\deepgelsight\object\ycb\mug\textured_coacd_3.stl" />
+    <mesh name="tomato_col4_mesh" file="E:\project\p1\deepgelsight\object\ycb\mug\textured_coacd_4.stl" />
+    <texture name="tomato_texture" type="2d" file="E:\project\p1\deepgelsight\object\ycb\mug\texture_map.png" />
+    <material name="tomato_mat" texture="tomato_texture" />
+  </asset>
+
+  <worldbody>
+    <light name="top_light" pos="1.2 -1.2 2.6" dir="-0.45 0.45 -1" directional="true" diffuse="1 1 1" ambient="0.25 0.25 0.25" />
+
+    <camera name="main_cam" pos="1.55 -1.60 1.45" xyaxes="0.72 0.69 0 -0.30 0.32 0.90" />
+
+    <geom name="floor" type="plane" pos="0 0 0" size="2 2 0.05" rgba="0.82 0.82 0.82 1" friction="0.8 0.02 0.001" contype="1" conaffinity="4" />
+
+    
+    <body name="table" pos="0 0 0"><geom name="table_top" type="box" pos="0.25 0 0.72" size="0.7 0.5 0.03" material="table_top_mat" contype="1" conaffinity="4" condim="4" friction="0.9 0.02 0.001" /><geom name="table_leg_1" type="box" pos="-0.350 -0.400 0.345" size="0.045 0.045 0.345" material="table_leg_mat" contype="1" conaffinity="4" friction="0.9 0.02 0.001" /><geom name="table_leg_2" type="box" pos="-0.350 0.400 0.345" size="0.045 0.045 0.345" material="table_leg_mat" contype="1" conaffinity="4" friction="0.9 0.02 0.001" /><geom name="table_leg_3" type="box" pos="0.850 -0.400 0.345" size="0.045 0.045 0.345" material="table_leg_mat" contype="1" conaffinity="4" friction="0.9 0.02 0.001" /><geom name="table_leg_4" type="box" pos="0.850 0.400 0.345" size="0.045 0.045 0.345" material="table_leg_mat" contype="1" conaffinity="4" friction="0.9 0.02 0.001" /></body><body name="base_link" pos="0 0 0.75">
+      <geom class="ur_visual" mesh="base_mesh" material="ur_grey" />
+      <geom class="ur_collision" type="cylinder" size="0.075 0.0375" pos="0 0 0.0375" />
+
+      <body name="shoulder_link" pos="0 0 0.1519" gravcomp="1">
+        <joint name="shoulder_pan_joint" type="hinge" axis="0 0 1" range="-3.14159265 3.14159265" />
+        <inertial pos="0 0 0" mass="2.0" diaginertia="0.00809316343 0.00809316343 0.005625" />
+        <geom class="ur_visual" mesh="shoulder_mesh" />
+        <geom class="ur_collision" type="sphere" size="0.065" />
+        <geom class="ur_collision" type="capsule" fromto="0 0 0  0 0.1198 0" size="0.05" />
+
+        <body name="upper_arm_link" pos="0 0.1198 0" euler="0 1.57079632679 0" gravcomp="1">
+          <joint name="shoulder_lift_joint" type="hinge" axis="0 1 0" range="-3.14159265 3.14159265" />
+          <inertial pos="0 0 0.121825" mass="3.42" diaginertia="0.02172848322 0.02172848322 0.00961875" />
+          <geom class="ur_visual" mesh="upperarm_mesh" />
+          <geom class="ur_collision" type="capsule" fromto="0 0 0  0 -0.0925 0.24365" size="0.043" />
+
+          <body name="forearm_link" pos="0 -0.0925 0.24365" gravcomp="1">
+            <joint name="elbow_joint" type="hinge" axis="0 1 0" range="-3.14159265 3.14159265" />
+            <inertial pos="0 0 0.106625" mass="1.26" diaginertia="0.00654680644 0.00654680644 0.00354375" />
+            <geom class="ur_visual" mesh="forearm_mesh" />
+            <geom class="ur_collision" type="capsule" fromto="0 0 0  0 0 0.21325" size="0.036" />
+
+            <body name="wrist_1_link" pos="0 0 0.21325" euler="0 1.57079632679 0" gravcomp="1">
+              <joint name="wrist_1_joint" type="hinge" axis="0 1 0" range="-3.14159265 3.14159265" />
+              <inertial pos="0 0.08505 0" mass="0.8" diaginertia="0.002084999166 0.002084999166 0.00225" />
+              <geom class="ur_visual" mesh="wrist1_mesh" />
+              <geom class="ur_collision" type="capsule" fromto="0 0 0  0 0.08505 0" size="0.037" />
+
+              <body name="wrist_2_link" pos="0 0.08505 0" gravcomp="1">
+                <joint name="wrist_2_joint" type="hinge" axis="0 0 1" range="-3.14159265 3.14159265" />
+                <inertial pos="0 0 0.08535" mass="0.8" diaginertia="0.002084999166 0.002084999166 0.00225" />
+                <geom class="ur_visual" mesh="wrist2_mesh" />
+                <geom class="ur_collision" type="capsule" fromto="0 0 0  0 0 0.08535" size="0.035" />
+
+                <body name="wrist_3_link" pos="0 0 0.08535" gravcomp="1">
+                  <joint name="wrist_3_joint" type="hinge" axis="0 1 0" range="-3.14159265 3.14159265" />
+                  <inertial pos="0 0.0619 0" mass="0.35" diaginertia="0.0001362666122 0.0001362666122 0.0001792" />
+                  <geom class="ur_visual" mesh="wrist3_mesh" />
+                  <geom class="ur_collision" type="capsule" fromto="0 0 0  0 0.0819 0" size="0.033" />
+
+                  
+                  <body name="ee_link" pos="0 0.0819 0" euler="0 0 1.57079632679">
+                    <site name="tool0" type="sphere" pos="0 0 0" size="0.006" rgba="1 0 0 1" />
+
+                    
+                    <body name="gripper_adapter" pos="0 0 0" euler="0 0 -1.57079632679">
+
+                      <body name="gripper_mount" pos="-0.00618 0.06229 0.05997" euler="-3.14159265359 0 0" gravcomp="1">
+                        <inertial pos="0 0 0" mass="0.08" diaginertia="0.00002 0.00002 0.00002" />
+
+                        <geom name="gripper_base_vis" type="mesh" mesh="gripper_base_mesh" material="gripper_base_mat" contype="0" conaffinity="0" />
+
+                        
+                        <site name="gripper_base_center_check" type="sphere" pos="0.00618 0.06229 0.05997" size="0.004" rgba="0 1 0 0.75" />
+
+                        
+                        <body name="finger1_body" pos="0 0 0" gravcomp="1">
+                          <joint name="finger1_hinge" type="hinge" pos="0.026 -0.0125 0.047" axis="1 0 1.732" range="-0.5235987756 0.5235987756" damping="0.05" />
+
+                          <geom name="finger1_vis" type="mesh" mesh="finger1_mesh" mass="0.02" material="gripper_green" contype="0" conaffinity="0" />
+
+                          <body name="finger1_gelsight_body" pos="0.04517 -0.08736 0.03744" euler="0.5235987756 2.0943951024 -0.4363323130" gravcomp="1">
+                            <geom name="finger1_gelsight_housing" type="box" pos="0 0 0" size="0.0112 0.01135 0.0025" rgba="0.2 0.2 0.2 0.35" contype="0" conaffinity="0" density="0" />
+
+                            <geom name="finger1_gel" type="box" mass="0.005" pos="0 0 0" size="0.0122 0.01315 0.0015" rgba="1 0 0 0.15" friction="0.5 0.03 0.01" condim="3" solref="0.05 1" solimp="0.85 0.90 0.008" margin="0.00030" contype="2" conaffinity="4" />
+
+                            <site name="finger1_gelsight_site" type="box" pos="0 0 0" size="0.0122 0.01315 0.0016" rgba="1 0 0 0.08" />
+                          </body>
+                        </body>
+
+                        
+                        <body name="finger2_body" pos="0 0 0" gravcomp="1">
+                          <joint name="finger2_hinge" type="hinge" pos="-0.0133 -0.0125 0.047" axis="1 0 -1.732" range="-0.5235987756 0.5235987756" damping="0.05" />
+
+                          <geom name="finger2_vis" type="mesh" mesh="finger2_mesh" mass="0.02" material="gripper_green" contype="0" conaffinity="0" />
+
+                          <body name="finger2_gelsight_body" pos="-0.03285 -0.08736 0.03747" euler="0.7853981634 -2.0943951024 0.5235987756" gravcomp="1">
+                            <geom name="finger2_gelsight_housing" type="box" pos="0 0 0" size="0.0112 0.01135 0.0025" rgba="0.2 0.2 0.2 0.35" contype="0" conaffinity="0" density="0" />
+
+                            <geom name="finger2_gel" type="box" mass="0.005" pos="0 0 0" size="0.0122 0.01315 0.0015" rgba="1 0 0 0.15" friction="0.5 0.03 0.01" condim="3" solref="0.05 1" solimp="0.85 0.90 0.008" margin="0.00030" contype="2" conaffinity="4" />
+
+                            <site name="finger2_gelsight_site" type="box" pos="0 0 0" size="0.0122 0.01315 0.0016" rgba="1 0 0 0.08" />
+                          </body>
+                        </body>
+
+                        
+                        <body name="finger3_body" pos="0 0 0" gravcomp="1">
+                          <joint name="finger3_hinge" type="hinge" pos="0.00635 -0.0125 0.08156" axis="-1 0 0" range="-0.5235987756 0.5235987756" damping="0.05" />
+
+                          <geom name="finger3_vis" type="mesh" mesh="finger3_mesh" mass="0.02" material="gripper_green" contype="0" conaffinity="0" />
+
+                          <body name="finger3_gelsight_body" pos="0.0062 -0.08736 0.105" euler="-0.3490658504 0 0" gravcomp="1">
+                            <geom name="finger3_gelsight_housing" type="box" pos="0 0 0" size="0.0112 0.01135 0.0025" rgba="0.2 0.2 0.2 0.35" contype="0" conaffinity="0" density="0" />
+
+                            <geom name="finger3_gel" type="box" mass="0.005" pos="0 0 0" size="0.0122 0.01315 0.0015" rgba="1 0 0 0.15" friction="0.5 0.03 0.01" condim="3" solref="0.05 1" solimp="0.85 0.90 0.008" margin="0.00030" contype="2" conaffinity="4" />
+
+                            <site name="finger3_gelsight_site" type="box" pos="0 0 0" size="0.0122 0.01315 0.0016" rgba="1 0 0 0.08" />
+                          </body>
+                        </body>
+
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  <body name="tomato_soup_can" pos="0.450000 0.000000 0.825000">
+      <freejoint name="tomato_soup_can_free" />
+      <geom name="tomato_visual_geom" type="mesh" mesh="tomato_visual_mesh" material="tomato_mat" pos="0.0 0.0 0.0" euler="0 0 0" contype="0" conaffinity="0" group="1" />
+      <geom name="tomato_collision_0" type="mesh" mesh="tomato_col0_mesh" pos="0.0 0.0 0.0" euler="0 0 0" contype="4" conaffinity="3" group="3" condim="4" friction="0.65 0.02 0.001" />
+      <geom name="tomato_collision_1" type="mesh" mesh="tomato_col1_mesh" pos="0.0 0.0 0.0" euler="0 0 0" contype="4" conaffinity="3" group="3" condim="4" friction="0.65 0.02 0.001" />
+      <geom name="tomato_collision_2" type="mesh" mesh="tomato_col2_mesh" pos="0.0 0.0 0.0" euler="0 0 0" contype="4" conaffinity="3" group="3" condim="4" friction="0.65 0.02 0.001" />
+      <geom name="tomato_collision_3" type="mesh" mesh="tomato_col3_mesh" pos="0.0 0.0 0.0" euler="0 0 0" contype="4" conaffinity="3" group="3" condim="4" friction="0.65 0.02 0.001" />
+      <geom name="tomato_collision_4" type="mesh" mesh="tomato_col4_mesh" pos="0.0 0.0 0.0" euler="0 0 0" contype="4" conaffinity="3" group="3" condim="4" friction="0.65 0.02 0.001" />
+      <inertial pos="0 0 0" euler="0 0 0" mass="0.118" diaginertia="0.001 0.001 0.001" />
+    <site name="tomato_center_site" type="sphere" pos="0 0 0" size="0.0035" rgba="1 0 1 0.9" /></body></worldbody>
+
+  
+  
+  <tendon>
+    <fixed name="gripper_tendon">
+      <joint joint="finger1_hinge" coef="1" />
+      <joint joint="finger2_hinge" coef="1" />
+      <joint joint="finger3_hinge" coef="1" />
+    </fixed>
+  </tendon>
+
+  <actuator>
+    
+    <position name="shoulder_pan" joint="shoulder_pan_joint" kp="120" dampratio="0.8" ctrlrange="-3.14159265 3.14159265" />
+    <position name="shoulder_lift" joint="shoulder_lift_joint" kp="120" dampratio="0.8" ctrlrange="-3.14159265 3.14159265" />
+    <position name="elbow" joint="elbow_joint" kp="100" dampratio="0.8" ctrlrange="-3.14159265 3.14159265" />
+    <position name="wrist_1" joint="wrist_1_joint" kp="60" dampratio="0.8" ctrlrange="-3.14159265 3.14159265" />
+    <position name="wrist_2" joint="wrist_2_joint" kp="60" dampratio="0.8" ctrlrange="-3.14159265 3.14159265" />
+    <position name="wrist_3" joint="wrist_3_joint" kp="45" dampratio="0.8" ctrlrange="-3.14159265 3.14159265" />
+
+    
+    
+    <position name="gripper_ctrl" tendon="gripper_tendon" kp="15" kv="0.5" ctrlrange="-1.5 1.5" ctrllimited="true" forcelimited="true" forcerange="-1.5 1.5" />
+  </actuator>
+
+  <keyframe>
+    
+    <key name="home" qpos="0 -1.5707963 1.5707963 -1.5707963 -1.5707963 0 0 0 0 0.450000 0.000000 0.825000 1 0 0 0" ctrl="0 -1.5707963 1.5707963 -1.5707963 -1.5707963 0  0" />
+  </keyframe>
+</mujoco>
