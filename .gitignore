@@ -1,0 +1,64 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Python environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+MUJOCO_LOG.TXT
+
+# Training outputs and checkpoints
+runs/
+artifacts/
+checkpoints/
+weights/
+*.pt
+*.pth
+*.ckpt
+tensorboard/
+
+# Dataset directories
+**/rgb_png/
+**/depth_npz/
+**/flow_npz/
+**/signals_csv/
+**/metadata_json/
+
+# Local data and caches
+datasets/
+dataset/
+data_local/
+cache/
+caches/
+feature_cache/
+
+# Secrets
+.env
+.env.*
+!.env.example

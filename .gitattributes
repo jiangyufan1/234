@@ -1,0 +1,23 @@
+﻿# Normalize source files to LF
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.xml text eol=lf
+*.csv text eol=lf
+*.txt text eol=lf
+*.ps1 text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary assets
+*.stl binary
+*.obj binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.npz binary
+*.npy binary
+*.pt binary
+*.pth binary
+*.pdf binary
