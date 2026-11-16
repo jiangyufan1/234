@@ -196,7 +196,7 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
     with path.open("rb") as handle:
         header = handle.read(24)
 
-    if len(header) != 24 or header[:8] != b"\\x89PNG\\r\\n\\x1a\\n":
+    if len(header) != 24 or header[:8] != b"\x89PNG\r\n\x1a\n":
         raise ValueError(f"Invalid PNG file: {path}")
 
     if header[12:16] != b"IHDR":
