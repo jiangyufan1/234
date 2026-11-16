@@ -1,0 +1,8 @@
+# Install torch and torchvision together from the matching CUDA wheel source.
+# The existing mujoco environment was verified with torch 2.11.0+cu128,
+# torchvision 0.26.0+cu128 and an RTX 5060.
+numpy>=1.26
+torch>=2.4
+torchvision>=0.19
+opencv-python>=4.8
+mujoco>=3.1

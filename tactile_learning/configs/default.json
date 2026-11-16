@@ -1,0 +1,41 @@
+{
+  "seed": 42,
+  "data": {
+    "height": 128,
+    "width": 96,
+    "static_frames": 4,
+    "max_flow_frames": 31,
+    "normalize_rgb": true,
+    "contact_source": "signals",
+    "flow_cache": "artifacts/flow",
+    "geometry_cache": "artifacts/geometry",
+    "flow_backend": "farneback",
+    "geometry_reference_body": "gripper_mount"
+  },
+  "model": {
+    "backbone": "resnet18",
+    "pretrained": false,
+    "use_flow": true,
+    "use_alignment": true,
+    "fusion": "graph",
+    "single_finger": 0,
+    "use_edge_geometry": true,
+    "feature_dim": 128,
+    "dropout": 0.2
+  },
+  "training": {
+    "epochs": 60,
+    "batch_size": 4,
+    "num_workers": 2,
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0001,
+    "amp": true,
+    "grad_clip": 1.0,
+    "patience": 12,
+    "balanced_sampling": false,
+    "finger_dropout": 0.0,
+    "temporal_shuffle": false,
+    "log_every": 10,
+    "cpu_threads": 4
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "data": {"static_frames": 2, "max_flow_frames": 8},
+  "model": {"backbone": "tiny", "pretrained": false, "feature_dim": 32},
+  "training": {"epochs": 2, "batch_size": 2, "num_workers": 0, "log_every": 1}
+}
