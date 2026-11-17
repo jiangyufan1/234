@@ -8,7 +8,7 @@ from torch import nn
 
 from .alignment import PoseConditionedAlignment
 from .encoders import DynamicEncoder, StaticEncoder
-from .graph import GraphFusion
+from .graph import GraphFusion, LocalModalityGraph
 
 
 class TactileClassifier(nn.Module):
@@ -17,6 +17,7 @@ class TactileClassifier(nn.Module):
         if num_classes < 2:
             raise ValueError("Object classification requires at least two classes.")
         feature_dim = int(config.get("feature_dim", 128))
+        self.feature_dim = feature_dim
         if feature_dim < 1:
             raise ValueError("feature_dim must be positive.")
         self.fusion = str(config.get("fusion", "graph"))
@@ -30,6 +31,14 @@ class TactileClassifier(nn.Module):
         self.static = StaticEncoder(str(config.get("backbone", "resnet18")), feature_dim,
                                     bool(config.get("pretrained", False)))
         self.dynamic = DynamicEncoder(feature_dim) if config.get("use_flow", True) else None
+        self.local_graph = (
+            LocalModalityGraph(feature_dim, dropout)
+            if config.get("use_local_graph", False) else None
+        )
+        if self.local_graph is not None and self.dynamic is None:
+            raise ValueError("use_local_graph requires use_flow=True.")
+        if self.local_graph is not None and self.fusion != "graph":
+            raise ValueError("use_local_graph requires fusion='graph'.")
         self.static_projection = nn.Linear(feature_dim, node_dim) if self.dynamic is None else None
         self.alignment = (PoseConditionedAlignment(node_dim, dropout)
                           if config.get("use_alignment", True) else None)
@@ -69,8 +78,25 @@ class TactileClassifier(nn.Module):
             flow_mask = batch["flow_mask"].bool()
             if flow_mask.shape != flow.shape[:3]:
                 raise ValueError("flow_mask must have shape [B,3,L].")
-            dynamic = self.dynamic(flow, flow_mask & node_mask.unsqueeze(-1), batch["flow_dt"])
-            nodes = torch.cat((static, dynamic), dim=-1)
+            valid_flow_mask = flow_mask & node_mask.unsqueeze(-1)
+            dynamic = self.dynamic(flow, valid_flow_mask, batch["flow_dt"])
+
+            if self.local_graph is not None:
+                batch_size = rgb.shape[0]
+                # [B,3,2,F]: modality nodes are ordered RGB then Flow.
+                modality_features = torch.stack((static, dynamic), dim=2)
+                modality_mask = torch.stack(
+                    (rgb_mask.any(dim=2), valid_flow_mask.any(dim=2)), dim=2
+                )
+                local_nodes = self.local_graph(
+                    modality_features.reshape(batch_size * 3, 2, self.feature_dim),
+                    modality_mask.reshape(batch_size * 3, 2),
+                )
+                # Keep updated RGB and Flow node features separately.
+                nodes = local_nodes.reshape(batch_size, 3, 2 * self.feature_dim)
+            else:
+                # Preserve the original Dynamic Concat baseline.
+                nodes = torch.cat((static, dynamic), dim=-1)
         else:
             nodes = self.static_projection(static)
         nodes = torch.where(node_mask.unsqueeze(-1), nodes, torch.zeros_like(nodes))

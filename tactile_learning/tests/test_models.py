@@ -153,5 +153,49 @@ class ModelTests(unittest.TestCase):
         self.assertGreater(difference, 1e-7)
 
 
+    def test_hierarchical_gnn_local_and_global_graph_receive_gradients(self):
+        model = create_model(5, tiny_config(
+            fusion="graph",
+            use_flow=True,
+            use_local_graph=True,
+            use_alignment=False,
+            use_edge_geometry=False,
+        ))
+        batch = example_batch()
+        logits = model(batch)
+        self.assertEqual(logits.shape, (2, 5))
+        nn.functional.cross_entropy(logits, torch.tensor([1, 4])).backward()
+
+        self.assertIsNotNone(model.local_graph.modality_embedding.grad)
+        self.assertTrue(torch.isfinite(model.local_graph.modality_embedding.grad).all())
+        self.assertGreater(
+            model.local_graph.layers[0].attention.grad.abs().sum().item(), 0
+        )
+        self.assertGreater(
+            model.graph.layers[0].attention.grad.abs().sum().item(), 0
+        )
+
+    def test_hierarchical_gnn_masks_missing_flow_modality_per_finger(self):
+        model = create_model(5, tiny_config(
+            fusion="graph",
+            use_flow=True,
+            use_local_graph=True,
+            use_alignment=False,
+            use_edge_geometry=False,
+        )).eval()
+        batch = example_batch()
+        batch["flow_mask"][:, 2] = False
+        batch["flow"][:, 2] = float("nan")
+        with torch.no_grad():
+            logits = model(batch)
+        self.assertEqual(logits.shape, (2, 5))
+        self.assertTrue(torch.isfinite(logits).all())
+
+    def test_original_dynamic_concat_has_no_local_graph(self):
+        model = create_model(5, tiny_config(fusion="concat", use_flow=True))
+        self.assertIsNone(model.local_graph)
+
+
+
 if __name__ == "__main__":
     unittest.main()

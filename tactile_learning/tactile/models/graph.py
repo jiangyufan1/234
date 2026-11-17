@@ -60,6 +60,43 @@ class DenseGraphAttention(nn.Module):
         return torch.where(active, x, torch.zeros_like(x))
 
 
+class LocalModalityGraph(nn.Module):
+    # Two-node RGB/Flow graph applied independently to each finger.
+    # Node order is fixed as [RGB, Flow]; learned embeddings preserve modality identity.
+    # Both updated nodes are retained for the global finger graph.
+
+    def __init__(self, dim: int, dropout: float = 0.2, heads: int = 4):
+        super().__init__()
+        if dim % heads:
+            raise ValueError("Local modality feature dimension must be divisible by heads.")
+        self.dim = dim
+        self.modality_embedding = nn.Parameter(torch.empty(1, 2, dim))
+        nn.init.normal_(self.modality_embedding, mean=0.0, std=0.02)
+        self.layers = nn.ModuleList([
+            DenseGraphAttention(dim, heads, dropout, use_edge_geometry=False)
+            for _ in range(2)
+        ])
+
+    def forward(self, features: torch.Tensor,
+                modality_mask: torch.Tensor) -> torch.Tensor:
+        if features.ndim != 3 or features.shape[1:] != (2, self.dim):
+            raise ValueError(
+                f"Local graph expects [B*3,2,{self.dim}], got {tuple(features.shape)}"
+            )
+        if modality_mask.shape != features.shape[:2]:
+            raise ValueError("modality_mask must have shape [B*3,2].")
+        modality_mask = modality_mask.bool()
+        if (~modality_mask.any(dim=1)).any():
+            raise ValueError("Each valid finger needs at least one valid modality.")
+
+        x = features + self.modality_embedding
+        x = torch.where(modality_mask.unsqueeze(-1), x, torch.zeros_like(x))
+        for layer in self.layers:
+            x = layer(x, modality_mask)
+        x = torch.where(modality_mask.unsqueeze(-1), x, torch.zeros_like(x))
+        return x.flatten(start_dim=1)
+
+
 class GraphFusion(nn.Module):
     def __init__(self, dim: int, dropout: float = 0.2, use_edge_geometry: bool = True):
         super().__init__()

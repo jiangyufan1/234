@@ -19,7 +19,7 @@ DEFAULTS = {
         "backbone": "resnet18", "pretrained": False,
         "use_flow": True, "use_alignment": True,
         "fusion": "graph", "single_finger": 0,
-        "use_edge_geometry": True, "feature_dim": 128, "dropout": 0.2,
+        "use_edge_geometry": True, "use_local_graph": False, "feature_dim": 128, "dropout": 0.2,
     },
     "training": {
         "epochs": 60, "batch_size": 4, "num_workers": 2,
@@ -42,6 +42,12 @@ VARIANTS = {
         "use_alignment": False, "use_edge_geometry": False}},
     "dynamic_concat": {"model": {"fusion": "concat", "use_flow": True,
         "use_alignment": False, "use_edge_geometry": False}},
+    # Two-level GNN without geometry caches: local RGB/Flow graph + global 3-finger graph.
+    "hierarchical_gnn": {"model": {"fusion": "graph", "use_flow": True,
+        "use_alignment": False, "use_edge_geometry": False, "use_local_graph": True}},
+    # Geometry-aware version; use only after geometry caches are prepared and validated.
+    "hierarchical_gnn_geometry": {"model": {"fusion": "graph", "use_flow": True,
+        "use_alignment": True, "use_edge_geometry": True, "use_local_graph": True}},
     "no_flow": {"model": {"use_flow": False}},
     "no_alignment": {"model": {"use_alignment": False}},
     "no_geometry": {"model": {"use_edge_geometry": False}},
