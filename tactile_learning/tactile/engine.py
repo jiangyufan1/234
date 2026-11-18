@@ -92,8 +92,43 @@ def run_epoch(model, loader, device, classes, config, optimizer=None, scaler=Non
             if training:
                 optimizer.zero_grad(set_to_none=True)
             with torch.autocast(device_type=device.type, enabled=use_amp):
-                logits = model(batch)
-                loss = torch.nn.functional.cross_entropy(logits, batch["label"])
+                if hasattr(model, "forward_with_aux"):
+                    logits, aux = model.forward_with_aux(batch)
+
+                    classification_loss = torch.nn.functional.cross_entropy(
+                        logits, batch["label"]
+                    )
+
+                    aux_names = (
+                        "trend_smoothness",
+                        "event_sparsity",
+                        "decomposition_reconstruction",
+                    )
+
+                    aux_terms = [
+                        value for key, value in aux.items()
+                        if key in aux_names
+                        or (
+                            key.startswith("flow_")
+                            and key[5:] in aux_names
+                        )
+                    ]
+
+                    auxiliary_loss = (
+                        torch.stack(aux_terms).sum()
+                        if aux_terms
+                        else classification_loss.new_zeros(())
+                    )
+
+                    loss = classification_loss + (
+                        config["training"].get("cte_aux_weight", 1.0)
+                        * auxiliary_loss
+                    )
+                else:
+                    logits = model(batch)
+                    loss = torch.nn.functional.cross_entropy(
+                        logits, batch["label"]
+                    )
             if not torch.isfinite(loss):
                 raise FloatingPointError(f"Nonfinite loss at episodes {batch['episode_id']}")
             if training:

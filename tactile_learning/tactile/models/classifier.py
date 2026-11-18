@@ -115,8 +115,18 @@ class TactileClassifier(nn.Module):
         return self.head(self.encode(batch))
 
 
-def create_model(num_classes: int, config: Mapping | None = None) -> TactileClassifier:
-    """Accept either a model mapping or a full config containing model settings."""
+def create_model(num_classes: int, config: Mapping | None = None) -> nn.Module:
+    """Create the selected model while preserving the original baseline."""
     config = {} if config is None else config
     config = config.get("model", config)
+
+    architecture = config.get("architecture", "baseline")
+
+    if architecture == "cte_hgnn":
+        from .cte_model import CTETactileClassifier
+        return CTETactileClassifier(num_classes, config)
+
+    if architecture != "baseline":
+        raise ValueError(f"Unknown model architecture: {architecture!r}")
+
     return TactileClassifier(num_classes, config)

@@ -1,0 +1,90 @@
+Metadata-Version: 2.4
+Name: mujoco-taxim
+Version: 0.1
+Summary: Mujoco integration of Taxim, a simulator for vision-based tactile sensors.
+Author-email: Zilin Si <zilin.si@example.com>, Wenzhen Yuan <wenzhen.yuan@example.com>, Seongjin Bien <seongjin.bien@utn.de>
+Maintainer-email: Seongjin Bien <seongjin.bien@utn.de>
+License: MIT License
+        
+        Copyright (c) 2021 CMURoboTouch
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/Robo-Touch/Taxim
+Project-URL: Repository, https://github.com/utn-air/mujoco-taxim
+Project-URL: RCS, https://github.com/utn-mi/robot-control-stack
+Keywords: science,digit,tactile,simulation,tactile sensors
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.18.5
+Requires-Dist: matplotlib>=3.1.3
+Requires-Dist: opencv-python>=3.4.2.17
+Requires-Dist: mujoco>=3.2.0
+Requires-Dist: trimesh>=4.8.3
+Requires-Dist: scipy
+Requires-Dist: numba
+Dynamic: license-file
+
+# MuJoCo-Taxim: A MuJoCo implementation of the Taxim Sensor
+
+This package implements [Taxim](https://github.com/Robo-Touch/Taxim) inside MuJoCo. 
+Currently, only the DIGIT sensor version is implemented.
+Changes have been made to the original codebase to minimize the package's size, only keeping the bare minimum for what is necessary to make Taxim work in MuJoCo.
+
+## Installation and Prerequisites
+Basic dependencies: numpy, scipy, matplotlib, mujoco, trimesh
+
+To install dependencies: `pip install -r requirements.txt`
+
+The package can also be installed via `pip install .`.
+
+## Usage
+MuJoCo-Taxim can be easily dropped into an existing MuJoCo application/scene.
+Check `examples/mujoco` for a detailed use case on how to achieve this.
+Currently, MuJoCo-Taxim can only simulate the tactile image of one object in a given step, but doing multi-geom simulation is planned.
+
+## Operating System
+MuJoCo-Taxim has been tested on Ubuntu 22.04. Chances are, the package will work fine in almost any environment so long as it is capable of installing and running MuJoCo 3.
+
+Configuration for Ubuntu:
+python 3.11
+numpy 2.4.1,
+scipy 1.17.0
+opencv-python 4.13
+mujoco 3.2.6
+trimesh 4.8.3
+
+## License
+MuJoCo-Taxim is licensed under [MIT license](LICENSE).
+
+## Citating Taxim
+If you use Taxim in your research, please cite:
+```BibTeX
+@article{si2021taxim,
+  title={Taxim: An Example-based Simulation Model for GelSight Tactile Sensors},
+  author={Si, Zilin and Yuan, Wenzhen},
+  journal={arXiv preprint arXiv:2109.04027},
+  year={2021}
+}
+```
+
+

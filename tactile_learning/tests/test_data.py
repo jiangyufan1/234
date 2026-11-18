@@ -110,9 +110,15 @@ class DataTests(unittest.TestCase):
         dataset = TactileEpisodeDataset(self.index_path, self.split_path, "train", self.config)
         sample = dataset[0]
         self.assertEqual(tuple(sample["rgb"].shape), (3, 4, 3, 16, 12))
-        self.assertEqual(sample["rgb_mask"].sum().item(), 6)
-        self.assertTrue(torch.all(sample["rgb"][:, 2:] == 0))
+        self.assertEqual(sample["rgb_mask"].sum().item(), 12)
         self.assertTrue(sample["node_mask"].all())
+
+        # RGB samples include dynamic_contact and hold.
+        expected_rgb_times = torch.tensor([1.02, 1.04, 1.08, 1.10])
+        self.assertTrue(torch.allclose(
+            sample["rgb_times"], expected_rgb_times, atol=1e-6
+        ))
+        self.assertTrue(sample["rgb_mask"].all())
         self.assertFalse(sample["flow_mask"].any())
         self.assertEqual(dataset.labels[0], sample["label"].item())
 
@@ -144,6 +150,17 @@ class DataTests(unittest.TestCase):
         self.assertTrue(torch.allclose(sample["flow"][:, :5], torch.tensor(.2)))
         self.assertTrue(torch.all(sample["flow"][:, 5:] == 0))
         self.assertTrue(torch.allclose(sample["flow_dt"][:5], torch.tensor(.02)))
+
+        expected_start = torch.tensor([1.00, 1.02, 1.04, 1.06, 1.08])
+        expected_end = torch.tensor([1.02, 1.04, 1.06, 1.08, 1.10])
+
+        self.assertTrue(torch.allclose(sample["flow_start"][:5], expected_start, atol=1e-6))
+        self.assertTrue(torch.allclose(sample["flow_end"][:5], expected_end, atol=1e-6))
+        self.assertTrue(torch.allclose(
+            sample["flow_end"][:5] - sample["flow_start"][:5],
+            sample["flow_dt"][:5],
+            atol=1e-6,
+        ))
 
     def test_required_flow_missing_or_wrong_time_fails(self):
         config = {**self.config, "use_flow": True, "flow_cache": str(self.base / "flow")}

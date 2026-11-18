@@ -102,24 +102,51 @@ class TactileEpisodeDataset(Dataset):
         times = signals["time"]
         count = len(times)
         contact = signals["contacts"] if self.contact_source == "signals" else np.ones((3, count), dtype=bool)
-        hold = np.flatnonzero((signals["phase"] == "hold") & contact.any(axis=0))
-        static_indices = _sample_indices(hold, self.static_frames)
+        # RGB uses the complete valid-contact sequence:
+        # dynamic_contact + hold. Each finger retains its own contact mask.
+        valid_contact = (
+            np.isin(signals["phase"], ["dynamic_contact", "hold"])
+            & contact.any(axis=0)
+        )
+        rgb_indices = _sample_indices(
+            np.flatnonzero(valid_contact), self.static_frames
+        )
+
         rgb = torch.zeros(3, self.static_frames, 3, self.height, self.width)
         rgb_mask = torch.zeros(3, self.static_frames, dtype=torch.bool)
-        if len(static_indices):
+        rgb_times = torch.zeros(self.static_frames, dtype=torch.float32)
+
+        if len(rgb_indices):
             with np.load(path / "tactile_rgb.npz", allow_pickle=False) as archive:
-                images = np.stack([archive[finger][static_indices] for finger in FINGERS])
+                images = np.stack([archive[finger][rgb_indices] for finger in FINGERS])
+
             image_tensor = torch.from_numpy(images).permute(0, 1, 4, 2, 3).float() / 255.0
-            image_tensor = F.interpolate(image_tensor.flatten(0, 1), size=(self.height, self.width),
-                                         mode="bilinear", align_corners=False, antialias=True)
-            rgb[:, :len(static_indices)] = image_tensor.reshape(3, len(static_indices), 3, self.height, self.width)
-            rgb_mask[:, :len(static_indices)] = torch.from_numpy(contact[:, static_indices].copy())
+            image_tensor = F.interpolate(
+                image_tensor.flatten(0, 1),
+                size=(self.height, self.width),
+                mode="bilinear",
+                align_corners=False,
+                antialias=True,
+            )
+
+            rgb[:, :len(rgb_indices)] = image_tensor.reshape(
+                3, len(rgb_indices), 3, self.height, self.width
+            )
+            rgb_mask[:, :len(rgb_indices)] = torch.from_numpy(
+                contact[:, rgb_indices].copy()
+            )
+            rgb_times[:len(rgb_indices)] = torch.from_numpy(
+                times[rgb_indices].astype(np.float32, copy=True)
+            )
         if self.normalize_rgb:
             rgb = (rgb - self.mean) / self.std
         rgb *= rgb_mask[:, :, None, None, None]
         flow = torch.zeros(3, self.max_flow_frames, 2, self.height, self.width)
         flow_mask = torch.zeros(3, self.max_flow_frames, dtype=torch.bool)
         flow_dt = torch.zeros(self.max_flow_frames)
+        flow_start = torch.zeros(self.max_flow_frames)
+        flow_end = torch.zeros(self.max_flow_frames)
+
         if self.use_flow:
             from tactile.features import validate_cache_source
             cache_path = self.flow_cache / episode["id"] / "flow.npz"
@@ -144,7 +171,15 @@ class TactileEpisodeDataset(Dataset):
             flow[:, :len(flow_indices)] = tensor.reshape(3, len(flow_indices), 2, self.height, self.width)
             pair_mask = contact[:, flow_indices] | contact[:, flow_indices + 1]
             flow_mask[:, :len(flow_indices)] = torch.from_numpy(pair_mask.copy())
-            flow_dt[:len(flow_indices)] = torch.from_numpy(cached_dt[flow_indices].astype(np.float32))
+            flow_dt[:len(flow_indices)] = torch.from_numpy(
+                cached_dt[flow_indices].astype(np.float32)
+            )
+            flow_start[:len(flow_indices)] = torch.from_numpy(
+                times[flow_indices].astype(np.float32, copy=True)
+            )
+            flow_end[:len(flow_indices)] = torch.from_numpy(
+                times[flow_indices + 1].astype(np.float32, copy=True)
+            )
             flow *= flow_mask[:, :, None, None, None]
         sensor_pose = torch.zeros(3, 12)
         edge_attr = torch.zeros(3, 3, 5)
@@ -176,7 +211,9 @@ class TactileEpisodeDataset(Dataset):
         node_mask = rgb_mask.any(dim=1) | flow_mask.any(dim=1)
         if not node_mask.any():
             raise ValueError("No observed contact frames. Change contact_source only for a declared no-oracle experiment.")
-        return {"rgb": rgb, "rgb_mask": rgb_mask, "flow": flow, "flow_mask": flow_mask,
-                "flow_dt": flow_dt, "sensor_pose": sensor_pose, "edge_attr": edge_attr,
+        return {"rgb": rgb, "rgb_mask": rgb_mask, "rgb_times": rgb_times,
+                "flow": flow, "flow_mask": flow_mask,
+                "flow_dt": flow_dt, "flow_start": flow_start, "flow_end": flow_end,
+                "sensor_pose": sensor_pose, "edge_attr": edge_attr,
                 "node_mask": node_mask, "label": torch.tensor(episode["label_id"], dtype=torch.long),
                 "episode_id": episode["id"]}

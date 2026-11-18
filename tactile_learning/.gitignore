@@ -1,0 +1,86 @@
+﻿# ======================================
+# Python
+# ======================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ======================================
+# Virtual environments
+# ======================================
+.venv/
+venv/
+env/
+ENV/
+
+# ======================================
+# IDE
+# ======================================
+.idea/
+.vscode/
+
+# ======================================
+# Local environment and secrets
+# ======================================
+.env
+.env.*
+!.env.example
+
+# ======================================
+# Raw datasets
+# ======================================
+/datasets/
+/raw_data/
+/raw_datasets/
+/dataset_cache/
+
+# Never ignore source code under tactile/data/
+
+# ======================================
+# Generated features and artifacts
+# ======================================
+/artifacts/
+/runs/
+/outputs/
+/checkpoints/
+/tensorboard/
+/wandb/
+
+# ======================================
+# Model weights
+# ======================================
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.onnx
+
+# ======================================
+# Generated arrays
+# ======================================
+*.npy
+
+# ======================================
+# Temporary and backup files
+# ======================================
+*.tmp
+*.temp
+*.log
+*.bak
+*.bak_*
+
+# ======================================
+# OS
+# ======================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dataset - never upload to GitHub
+/data/

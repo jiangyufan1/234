@@ -16,6 +16,9 @@ DEFAULTS = {
         "flow_backend": "farneback", "geometry_reference_body": "gripper_mount",
     },
     "model": {
+        "architecture": "baseline",
+        "cte_num_atoms": 8,
+        "cte_sigma_seconds": 0.03,
         "backbone": "resnet18", "pretrained": False,
         "use_flow": True, "use_alignment": True,
         "fusion": "graph", "single_finger": 0,
@@ -26,11 +29,25 @@ DEFAULTS = {
         "learning_rate": 0.0001, "weight_decay": 0.0001,
         "amp": True, "grad_clip": 1.0, "patience": 12,
         "balanced_sampling": False, "finger_dropout": 0.0,
-        "temporal_shuffle": False, "log_every": 10, "cpu_threads": 4,
+        "temporal_shuffle": False, "cte_aux_weight": 1.0,
+        "log_every": 10, "cpu_threads": 4,
     },
 }
 
 VARIANTS = {
+    "cte_hgnn": {
+        "model": {
+            "architecture": "cte_hgnn",
+            "use_flow": True,
+            "use_alignment": False,
+            "fusion": "graph",
+            "use_edge_geometry": False,
+            "use_local_graph": False,
+        },
+        "training": {
+            "temporal_shuffle": False,
+        },
+    },
     "full": {},
     "static_single1": {"model": {"fusion": "single", "single_finger": 0,
         "use_flow": False, "use_alignment": False, "use_edge_geometry": False}},
@@ -107,6 +124,21 @@ def resolve_config(config):
         raise ValueError("finger_dropout must be in [0, 1)")
     if training["learning_rate"] <= 0 or training["weight_decay"] < 0:
         raise ValueError("Invalid optimizer settings")
+
+    if model.get("architecture", "baseline") not in ("baseline", "cte_hgnn"):
+        raise ValueError("Unknown model architecture")
+
+    if training.get("cte_aux_weight", 1.0) < 0:
+        raise ValueError("cte_aux_weight must be nonnegative")
+
+    if (
+        model.get("architecture") == "cte_hgnn"
+        and training["temporal_shuffle"]
+    ):
+        raise ValueError(
+            "CTE-HGNN requires chronological Flow intervals; "
+            "temporal_shuffle is not supported."
+        )
     if training["finger_dropout"] and model["fusion"] == "single":
         raise ValueError("Do not enable finger_dropout for single-finger baselines")
     return config
