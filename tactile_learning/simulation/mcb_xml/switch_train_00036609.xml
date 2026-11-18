@@ -13,7 +13,7 @@
     Gripper meshes use scale=0.001 because the original gripper STL model is in mm.
   -->
 
-  <compiler angle="radian" meshdir="E:/project/p1/deepgelsight/xml" autolimits="true" boundmass="1e-6" boundinertia="1e-8" />
+  <compiler angle="radian" meshdir="D:/robotics/234/tactile_learning/simulation/robot/xml" autolimits="true" boundmass="1e-6" boundinertia="1e-8" />
 
   <option timestep="0.001" integrator="implicitfast" solver="Newton" iterations="150" ls_iterations="80" gravity="0 0 0" cone="elliptic" impratio="2">
     <flag multiccd="enable" />
@@ -44,20 +44,20 @@
     <material name="gripper_base_mat" rgba="0.80 0.80 0.80 1" />
 
     <!-- UR3 meshes: same directory as XML -->
-    <mesh name="base_mesh" file="base.stl" />
-    <mesh name="shoulder_mesh" file="shoulder.stl" />
-    <mesh name="upperarm_mesh" file="upperarm.stl" />
-    <mesh name="forearm_mesh" file="forearm.stl" />
-    <mesh name="wrist1_mesh" file="wrist1.stl" />
-    <mesh name="wrist2_mesh" file="wrist2.stl" />
-    <mesh name="wrist3_mesh" file="wrist3.stl" />
+    <mesh name="base_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/base.stl" />
+    <mesh name="shoulder_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/shoulder.stl" />
+    <mesh name="upperarm_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/upperarm.stl" />
+    <mesh name="forearm_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/forearm.stl" />
+    <mesh name="wrist1_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/wrist1.stl" />
+    <mesh name="wrist2_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/wrist2.stl" />
+    <mesh name="wrist3_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/wrist3.stl" />
 
     <!-- Three-finger gripper meshes: original files are in mm -->
-    <mesh name="gripper_base_mesh" file="gripperbase.stl" scale="0.001 0.001 0.001" />
-    <mesh name="finger1_mesh" file="link1.stl" scale="0.001 0.001 0.001" />
-    <mesh name="finger2_mesh" file="link2.stl" scale="0.001 0.001 0.001" />
-    <mesh name="finger3_mesh" file="link3.stl" scale="0.001 0.001 0.001" />
-  <mesh name="mcb_switch_train_mesh" file="E:/project/p1/deepgelsight/MCB_A/dataset_org_norm/train/Switch/00036609.obj" scale="0.05 0.05 0.05" /></asset>
+    <mesh name="gripper_base_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/gripperbase.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger1_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/link1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger2_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/link2.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger3_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/link3.stl" scale="0.001 0.001 0.001" />
+  <mesh name="mcb_switch_train_mesh" file="D:/robotics/234/tactile_learning/data/raw/MCB_A/dataset_org_norm/train/Switch/00036609.obj" scale="0.05 0.05 0.05" /></asset>
 
   <!-- Collision masks: GelSight pads 2/4; MCB part 4/3; table 1/4. --><worldbody>
     <light name="top_light" pos="1.2 -1.2 2.6" dir="-0.45 0.45 -1" directional="true" diffuse="1 1 1" ambient="0.25 0.25 0.25" />

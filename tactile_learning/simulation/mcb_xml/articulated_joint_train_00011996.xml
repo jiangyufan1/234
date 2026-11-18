@@ -2,7 +2,7 @@
 <mujoco model="ur3_mcb_articulated_joint_train">
   
 
-  <compiler angle="radian" meshdir="../robot/xml" autolimits="true" boundmass="1e-6" boundinertia="1e-8" />
+  <compiler angle="radian" meshdir="D:/robotics/234/tactile_learning/simulation/robot/xml" autolimits="true" boundmass="1e-6" boundinertia="1e-8" />
 
   <option timestep="0.001" integrator="implicitfast" solver="Newton" iterations="150" ls_iterations="80" gravity="0 0 0" cone="elliptic" impratio="2">
     <flag multiccd="enable" />
@@ -33,20 +33,20 @@
     <material name="gripper_base_mat" rgba="0.80 0.80 0.80 1" />
 
     
-    <mesh name="base_mesh" file="base.stl" />
-    <mesh name="shoulder_mesh" file="shoulder.stl" />
-    <mesh name="upperarm_mesh" file="upperarm.stl" />
-    <mesh name="forearm_mesh" file="forearm.stl" />
-    <mesh name="wrist1_mesh" file="wrist1.stl" />
-    <mesh name="wrist2_mesh" file="wrist2.stl" />
-    <mesh name="wrist3_mesh" file="wrist3.stl" />
+    <mesh name="base_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/base.stl" />
+    <mesh name="shoulder_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/shoulder.stl" />
+    <mesh name="upperarm_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/upperarm.stl" />
+    <mesh name="forearm_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/forearm.stl" />
+    <mesh name="wrist1_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/wrist1.stl" />
+    <mesh name="wrist2_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/wrist2.stl" />
+    <mesh name="wrist3_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/wrist3.stl" />
 
     
-    <mesh name="gripper_base_mesh" file="gripperbase.stl" scale="0.001 0.001 0.001" />
-    <mesh name="finger1_mesh" file="link1.stl" scale="0.001 0.001 0.001" />
-    <mesh name="finger2_mesh" file="link2.stl" scale="0.001 0.001 0.001" />
-    <mesh name="finger3_mesh" file="link3.stl" scale="0.001 0.001 0.001" />
-  <mesh name="mcb_articulated_joint_train_mesh" file="E:/project/p1/deepgelsight/MCB_A/dataset_org_norm/train/Articulations, eyelets and other articulated joints/00011996.obj" scale="0.0521008403011 0.0521008403011 0.0521008403011" /></asset>
+    <mesh name="gripper_base_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/gripperbase.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger1_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/link1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger2_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/link2.stl" scale="0.001 0.001 0.001" />
+    <mesh name="finger3_mesh" file="D:/robotics/234/tactile_learning/simulation/robot/xml/link3.stl" scale="0.001 0.001 0.001" />
+  <mesh name="mcb_articulated_joint_train_mesh" file="D:/robotics/234/tactile_learning/data/raw/MCB_A/dataset_org_norm/train/Articulations, eyelets and other articulated joints/00011996.obj" scale="0.0521008403011 0.0521008403011 0.0521008403011" /></asset>
 
   <worldbody>
     <light name="top_light" pos="1.2 -1.2 2.6" dir="-0.45 0.45 -1" directional="true" diffuse="1 1 1" ambient="0.25 0.25 0.25" />
@@ -188,6 +188,6 @@
 
   <keyframe>
     
-    <key name="home" qpos="0 -1.5707963 1.5707963 -1.5707963 -1.5707963 0 0 0 0 0.450000 0.000000 0.800017 1 0 0 0" ctrl="0 -1.5707963 1.5707963 -1.5707963 -1.5707963 0  0 0 0" />
+    <key name="home" qpos="-0.2523101700 -0.9627173000 0.8230293600 -1.4311083600 -1.5707963100 -0.2523101700 0 0 0 0.450000 0.000000 0.800017 1 0 0 0" ctrl="-0.2523101700 -0.9627173000 0.8230293600 -1.4311083600 -1.5707963100 -0.2523101700 0 0 0" />
   </keyframe>
 </mujoco>

@@ -13,6 +13,7 @@ from datetime import datetime
 import hashlib
 import io
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import collect_mcb_position_pose as core
@@ -48,16 +49,65 @@ def _sha256(path):
 
 
 def _shared_fingerprints():
-    """Fingerprint the common robot resources and every collection code layer."""
+    """Fingerprint the template and robot meshes, excluding its obsolete MCB OBJ."""
     here = Path(__file__).resolve().parent
-    sources = [Path(core.__file__), Path(core.models.__file__),
-               Path(core.adapter.__file__), core.adapter.DEFAULT_COLLECTOR,
-               Path(__file__),
-               here / "collection_storage.py", here / "tactile_optical_flow.py",
-               here / "sensor_collision_guard.py"]
-    return {"model_sources_sha256": core.model_fingerprint(core.models.TEMPLATE_XML),
-            "code_sources_sha256": {str(path.resolve()): _sha256(path)
-                                    for path in sorted(set(sources))}}
+    template = core.models.TEMPLATE_XML
+    tree = ET.parse(template)
+    root = tree.getroot()
+
+    compiler = root.find("compiler")
+    mesh_dir = Path(
+        compiler.get("meshdir", ".") if compiler is not None else "."
+    )
+    if not mesh_dir.is_absolute():
+        mesh_dir = (template.parent / mesh_dir).resolve()
+
+    visual = root.find(".//geom[@name='mcb_part_visual']")
+    obsolete_object_mesh = visual.get("mesh") if visual is not None else None
+
+    model_sources = {
+        str(template.resolve()): _sha256(template)
+    }
+
+    for mesh in root.findall(".//mesh"):
+        if mesh.get("name") == obsolete_object_mesh:
+            continue
+
+        filename = mesh.get("file")
+        if not filename:
+            continue
+
+        mesh_path = Path(filename)
+        if not mesh_path.is_absolute():
+            mesh_path = mesh_dir / mesh_path
+
+        mesh_path = mesh_path.resolve()
+
+        if not mesh_path.is_file():
+            raise FileNotFoundError(
+                f"Robot mesh missing: {mesh_path}"
+            )
+
+        model_sources[str(mesh_path)] = _sha256(mesh_path)
+
+    sources = [
+        Path(core.__file__),
+        Path(core.models.__file__),
+        Path(core.adapter.__file__),
+        core.adapter.DEFAULT_COLLECTOR,
+        Path(__file__),
+        here / "collection_storage.py",
+        here / "tactile_optical_flow.py",
+        here / "sensor_collision_guard.py",
+    ]
+
+    return {
+        "model_sources_sha256": model_sources,
+        "code_sources_sha256": {
+            str(path.resolve()): _sha256(path)
+            for path in sorted(set(sources))
+        },
+    }
 
 
 def make_batch_plan(args, rows, total_categories, configs, dimensions):

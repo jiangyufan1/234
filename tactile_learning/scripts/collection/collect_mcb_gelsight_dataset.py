@@ -74,6 +74,55 @@ def object_names(xml_path: Path) -> tuple[str, str]:
     return visual.get("name", "mcb_part_visual"), visual.attrib["mesh"]
 
 
+def compute_mesh_bbox_center_body(collector, xml_path, visual_geom_name, mesh_name):
+    "Compute compiled mesh AABB midpoint in mcb_part body coordinates."
+    import numpy as np
+    model = collector.load_model(Path(xml_path))
+    mj = collector.mujoco
+    gid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, visual_geom_name)
+    mid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_MESH, mesh_name)
+    if gid < 0 or mid < 0:
+        raise ValueError(f"Missing visual geom or mesh: {visual_geom_name}, {mesh_name}")
+
+    adr = int(model.mesh_vertadr[mid])
+    count = int(model.mesh_vertnum[mid])
+    if count <= 0:
+        raise ValueError(f"Mesh has no vertices: {mesh_name}")
+
+    vertices = np.asarray(model.mesh_vert[adr:adr + count], dtype=float)
+    if vertices.ndim != 2 or vertices.shape[1] != 3:
+        raise ValueError(f"Unexpected vertex shape: {vertices.shape}")
+    if not np.isfinite(vertices).all():
+        raise ValueError(f"Non-finite mesh vertices: {mesh_name}")
+
+    # Legacy definition: midpoint of the vertex axis-aligned bounding box.
+    lo = vertices.min(axis=0)
+    hi = vertices.max(axis=0)
+    midpoint_mesh = 0.5 * (lo + hi)
+
+    # Mesh scale is already included in MuJoCo's compiled vertices.
+    Rm = np.zeros(9, dtype=float)
+    mj.mju_quat2Mat(Rm, model.mesh_quat[mid])
+    midpoint_asset = (
+        np.asarray(model.mesh_pos[mid], dtype=float)
+        + Rm.reshape(3, 3) @ midpoint_mesh
+    )
+
+    Rg = np.zeros(9, dtype=float)
+    mj.mju_quat2Mat(Rg, model.geom_quat[gid])
+    midpoint_body = (
+        np.asarray(model.geom_pos[gid], dtype=float)
+        + Rg.reshape(3, 3) @ midpoint_asset
+    )
+
+    return {
+        "center_body_m": np.asarray(midpoint_body, dtype=float),
+        "bbox_min_mesh_m": lo,
+        "bbox_max_mesh_m": hi,
+        "bbox_size_mesh_m": hi - lo,
+        "vertex_count": count,
+    }
+
 def configure_collector(collector, xml_path: Path, label: str, output: Path,
                         configs: list[dict], repeats: int, seed: int,
                         show_viewer: bool, save_images: bool,
@@ -81,7 +130,7 @@ def configure_collector(collector, xml_path: Path, label: str, output: Path,
     if not np.isfinite(sensor_clearance_m) or sensor_clearance_m <= 0:
         raise ValueError("sensor_clearance_m must be finite and greater than zero")
     visual_geom, mesh_name = object_names(xml_path)
-    collector.XML_PATH = xml_path
+    # Restore legacy mesh-AABB midpoint as the object grasp center.\n    _mesh_center = compute_mesh_bbox_center_body(\n        collector, xml_path, visual_geom, mesh_name\n    )\n    collector.GRASP_CENTER_OBJECT = np.asarray(\n        _mesh_center['center_body_m'], dtype=float\n    ).copy()\n    print('[OBJECT MESH CENTER]', {\n        'body_center_m': collector.GRASP_CENTER_OBJECT.tolist(),\n        'bbox_size_m': _mesh_center['bbox_size_mesh_m'].tolist(),\n        'vertices': _mesh_center['vertex_count'],\n    }, flush=True)\n    collector.XML_PATH = xml_path
     collector.OBJECT_BODY = "mcb_part"
     collector.OBJECT_FREEJOINT = "mcb_part_free"
     collector.DATASET_OBJECT_LABEL = label

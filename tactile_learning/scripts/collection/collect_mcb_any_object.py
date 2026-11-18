@@ -114,9 +114,12 @@ def make_centered_xml(obj_path: Path, label: str) -> Path:
     collision.set("mesh", "mcb_selected_object_mesh")
 
     # Recenter the source OBJ's nonzero 0..1 vertex range at the body's origin.
-    original_model = mujoco.MjModel.from_xml_path(str(TEMPLATE_XML))
-    mesh_model = mujoco.MjModel.from_xml_string(ET.tostring(root, encoding="unicode"))
-    _ = original_model  # validates that the base robot template itself compiles
+    # Compile the generated scene after replacing the template's obsolete
+    # object mesh with the currently selected OBJ.
+    # The generated model also validates the robot STL resources.
+    mesh_model = mujoco.MjModel.from_xml_string(
+        ET.tostring(root, encoding="unicode")
+    )
     geom_ids = [
         mujoco.mj_name2id(mesh_model, mujoco.mjtObj.mjOBJ_GEOM, name)
         for name in ("mcb_part_visual", "mcb_part_collision")
