@@ -62,3 +62,45 @@ feature_cache/
 .env
 .env.*
 !.env.example
+
+# =====================================
+# Large datasets and generated artifacts
+# =====================================
+
+# Touch and Go raw dataset
+/data/datasets/
+/datasets/
+/touch-and-go/
+
+# Dataset caches and preprocessing outputs
+**/artifacts/flow/
+**/artifacts/geometry/
+**/processed/
+**/tactile_video_flow/
+**/.memmap_tmp/
+
+# Video and image datasets
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Large array and tensor files
+*.npz
+*.npy
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Training outputs
+**/runs/
+**/checkpoints/
+**/wandb/
+**/tensorboard/
+
+# Temporary files
+*.tmp
+*.partial
+__pycache__/
+*.py[cod]
