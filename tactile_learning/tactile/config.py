@@ -65,6 +65,21 @@ VARIANTS = {
         },
         "training": {"temporal_shuffle": False},
     },
+    "st_cte_hgnn_single": {
+        "model": {
+            "architecture": "st_cte_hgnn_single",
+            "use_flow": True,
+            "use_alignment": False,
+            "fusion": "graph",
+            "use_edge_geometry": False,
+            "use_local_graph": False,
+            "spatial_dim": 128,
+            "spatial_graph_layers": 2,
+            "spatial_adaptive_neighbors": 4,
+            "fusion_heads": 4,
+        },
+        "training": {"temporal_shuffle": False},
+    },
     "cte_hgnn": {
         "model": {
             "architecture": "cte_hgnn",
@@ -155,7 +170,7 @@ def resolve_config(config):
     if training["learning_rate"] <= 0 or training["weight_decay"] < 0:
         raise ValueError("Invalid optimizer settings")
 
-    if model.get("architecture", "baseline") not in ("baseline", "cte_hgnn", "st_cte_hgnn", "st_cte_hgnn_optimized"):
+    if model.get("architecture", "baseline") not in ("baseline", "cte_hgnn", "st_cte_hgnn", "st_cte_hgnn_optimized", "st_cte_hgnn_single"):
         raise ValueError("Unknown model architecture")
 
     if training.get("cte_aux_weight", 1.0) < 0:

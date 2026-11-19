@@ -61,10 +61,10 @@ class CTEInputEncoder(nn.Module):
         rgb_mask = batch["rgb_mask"].bool()
         flow_mask = batch["flow_mask"].bool()
 
-        if rgb.ndim != 6 or rgb.shape[1] != 3 or rgb.shape[3] != 3:
+        if rgb.ndim != 6 or rgb.shape[1] < 1 or rgb.shape[3] != 3:
             raise ValueError("rgb must be [B,3,Tr,3,H,W]")
 
-        if flow.ndim != 6 or flow.shape[1] != 3 or flow.shape[3] != 2:
+        if flow.ndim != 6 or flow.shape[1] < 1 or flow.shape[3] != 2:
             raise ValueError("flow must be [B,3,Tf,2,H,W]")
 
         B, N, Tr = rgb.shape[:3]

@@ -1,0 +1,31 @@
+{
+  "seed": 42,
+  "data": {
+    "height": 128, "width": 96, "static_frames": 16,
+    "max_flow_frames": 15, "normalize_rgb": true,
+    "contact_source": "all",
+    "flow_cache": "/data/datasets/tactile-video-pretrain/artifacts/flow",
+    "geometry_cache": "/data/datasets/tactile-video-pretrain/artifacts/geometry",
+    "flow_backend": "farneback",
+    "geometry_reference_body": "gripper_mount"
+  },
+  "model": {
+    "architecture": "st_cte_hgnn_single",
+    "cte_num_atoms": 8, "cte_sigma_seconds": 0.03,
+    "spatial_dim": 128, "spatial_graph_layers": 2,
+    "spatial_adaptive_neighbors": 4, "fusion_heads": 4,
+    "backbone": "resnet18", "pretrained": false,
+    "use_flow": true, "use_alignment": false,
+    "fusion": "graph", "single_finger": 0,
+    "use_edge_geometry": false, "use_local_graph": false,
+    "feature_dim": 128, "dropout": 0.2
+  },
+  "training": {
+    "epochs": 60, "batch_size": 8, "num_workers": 4,
+    "learning_rate": 0.0001, "weight_decay": 0.0001,
+    "amp": true, "grad_clip": 1.0, "patience": 12,
+    "balanced_sampling": false, "finger_dropout": 0.0,
+    "temporal_shuffle": false, "cte_aux_weight": 1.0,
+    "log_every": 10, "cpu_threads": 8
+  }
+}
