@@ -26,21 +26,44 @@ COUNTERS = ("planned", "completed", "valid", "invalid", "rgb_samples",
 
 def select_categories(dataset_root, start=1, limit=None):
     """Return total category count and a slice retaining its original 1-based IDs."""
-    representatives = select_representatives(Path(dataset_root).expanduser().resolve())
-    count = len(representatives)
+    dataset_root = Path(dataset_root).expanduser().resolve()
+    if not dataset_root.is_dir():
+        raise FileNotFoundError(f"MCB 数据集目录不存在：{dataset_root}")
+    category_names = sorted({
+        folder.name
+        for split in ("train", "test")
+        for folder in (dataset_root / split).iterdir()
+        if folder.is_dir()
+    })
+    count = len(category_names)
     if not count:
-        raise ValueError("train/test 中没有包含 OBJ 的物体类别")
+        raise ValueError("train/test 中没有物体类别")
     if start < 1 or start > count:
         raise ValueError(f"--start-category 必须在 1 到 {count} 之间")
     if limit is not None and limit < 1:
         raise ValueError("--limit-categories 必须大于 0")
-    selected = list(enumerate(representatives, 1))[start - 1:]
+    selected = list(enumerate(category_names, 1))[start - 1:]
     if limit is not None:
         selected = selected[:limit]
-    rows = [{"category_index": index, "category": category,
-             "label": core.models.slug(f"cat{index:02d}_{obj_path.stem}"),
-             "source_obj": str(obj_path.resolve())}
-            for index, (category, obj_path) in selected]
+
+    rows = []
+    for category_index, category in selected:
+        candidates = []
+        for split in ("train", "test"):
+            folder = dataset_root / split / category
+            if folder.is_dir():
+                candidates.extend(sorted(folder.glob("*.obj")))
+        unique = list(dict.fromkeys(path.resolve() for path in candidates))
+        for instance_index, obj_path in enumerate(unique[:3], 1):
+            rows.append({
+                "category_index": category_index,
+                "instance_index": instance_index,
+                "category": category,
+                "label": core.models.slug(
+                    f"cat{category_index:02d}_instance{instance_index:02d}_{obj_path.stem}"
+                ),
+                "source_obj": str(obj_path),
+            })
     return count, rows
 
 
@@ -125,7 +148,8 @@ def make_batch_plan(args, rows, total_categories, configs, dimensions):
     return {"schema_version": 1, "mode": "all_categories",
             "dataset_root": str(Path(args.dataset_root).expanduser().resolve()),
             "total_available_categories": total_categories,
-            "selected_category_count": len(objects), "objects": objects,
+            "selected_category_count": len({item["category_index"] for item in objects}),
+            "selected_object_instance_count": len(objects), "objects": objects,
             "configs": configs, "dimensions": dimensions,
             "episodes_per_category": dimensions["episodes"],
             "total_planned_episodes": len(objects) * dimensions["episodes"],
@@ -263,7 +287,8 @@ def _write_progress(output, layout, records, total_available, *, interrupted=Fal
     if final:
         _write_json(meta_root / "category_batch_summary.json", summary)
     stream = io.StringIO(newline="")
-    fields = ["category_index", "category", "label", "source_obj", "status", *COUNTERS, "message"]
+    fields = ["category_index", "instance_index", "category", "label",
+              "source_obj", "status", *COUNTERS, "message"]
     writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(records)
@@ -274,6 +299,10 @@ def _write_progress(output, layout, records, total_available, *, interrupted=Fal
 def run_all_categories(args):
     """Check or collect the raw dataset's whole category inventory, sequentially."""
     total, rows = select_categories(args.dataset_root, args.start_category, args.limit_categories)
+    # Formal protocol: free object, fixed object-local grasp centre and fixed gripper orientation.
+    args.free_floating = True
+    args.contact_mm = [[0.0, 0.0, 0.0]]
+    args.follow_object_orientation = False
     configs, dimensions = core.make_configs(args)
     output = (args.output or core.DEFAULT_OUTPUT /
               datetime.now().strftime("%Y%m%d_%H%M%S_%f_68categories")).resolve()

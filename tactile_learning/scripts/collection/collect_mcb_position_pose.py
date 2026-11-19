@@ -70,9 +70,24 @@ def finite_points(points, name: str) -> list[list[float]]:
 
 
 def make_configs(args) -> tuple[list[dict], dict]:
-    world_mm = finite_points(args.position_mm or cross_points(10.0), "--position-mm")
-    contact_mm = finite_points(args.contact_mm or cross_points(5.0), "--contact-mm")
-    rpy_deg = finite_points(args.rpy_deg or cross_points(90.0), "--rpy-deg")
+    # MCB V1: vary object world position and object orientation only.
+    # Keep the calibrated object-local grasp centre fixed at the body origin.
+    world_mm = finite_points(
+        args.position_mm or [
+            [10.0, 0.0, 0.0], [-10.0, 0.0, 0.0],
+            [0.0, 10.0, 0.0], [0.0, -10.0, 0.0],
+        ],
+        "--position-mm",
+    )
+    contact_mm = [[0.0, 0.0, 0.0]]
+    rpy_deg = finite_points(
+        args.rpy_deg or [
+            [0.0, 0.0, 0.0],
+            [0.0, 15.0, 0.0],
+            [0.0, 0.0, 15.0],
+        ],
+        "--rpy-deg",
+    )
     rolls = list(dict.fromkeys(float(value) for value in args.rolls_deg))
     if not rolls or not np.isfinite(rolls).all():
         raise ValueError("--rolls-deg requires finite angles")
@@ -322,8 +337,80 @@ def run_prepared_object(args, prepared, output, *, collector=None) -> dict:
     try:
         adapter.configure_collector(collector, xml_path, label, output, configs,
                                     args.repeats, plan["seed"], not args.headless, True,
-                                    not args.free_floating,
+                                    False,
                                     sensor_clearance_m=args.sensor_clearance_mm / 1000)
+
+        # Event-driven V2 replaces only the close/capture sequence.
+        # The validated MCB main grasp centre, tool0 TCP transform and IK stay intact.
+        from event_driven_v2.collector import Config as EventConfig, install_event_patch
+        event_cfg = EventConfig()
+        event_signature = {
+            "collection_version": "event_driven_v2",
+            "config": event_cfg.as_dict(),
+            "xml_sha256": hashlib.sha256(xml_path.read_bytes()).hexdigest(),
+        }
+        collector._event_protocol_signature = event_signature
+        install_event_patch(collector, event_cfg)
+
+        # Override the legacy adapter's stricter episode admission rule:
+        # retain any real contact as partial data; stable 3-finger contact is success.
+        event_wrapped_run = collector.run_episode
+
+        def classify_v2_episode(*episode_args, **episode_kwargs):
+            result = event_wrapped_run(*episode_args, **episode_kwargs)
+            samples = result.get("samples", [])
+            contact_frames = sum(
+                any(bool(value) for value in sample.get("contacts", []))
+                for sample in samples
+            )
+            has_contact = contact_frames > 0
+            event_meta = dict(
+                getattr(collector, "_event_driven_last_metadata", {})
+            )
+            events = event_meta.get("contact_events", {})
+            stable_three = events.get("stable_contact_time_s") is not None
+            status = (
+                "success" if stable_three else
+                "partial_contact" if has_contact else
+                "no_contact"
+            )
+            result["valid"] = bool(has_contact)
+            result["reason"] = status
+            metadata = result.setdefault("metadata", {})
+            metadata.update({
+                "collection_version": "event_driven_v2",
+                "episode_status": status,
+                "training_eligible": bool(has_contact),
+                "contact_frame_count": int(contact_frames),
+                "all_three_contact_stable": bool(stable_three),
+                "valid": bool(has_contact),
+                "reason": status,
+                "tcp_site": getattr(collector, "TOOL_SITE", "tool0"),
+                "tcp_to_grasp_center_tool_m": np.asarray(
+                    collector.GRASP_OFFSET_TOOL, dtype=float
+                ).tolist(),
+                "grasp_center_object_m": np.asarray(
+                    collector.GRASP_CENTER_OBJECT, dtype=float
+                ).tolist(),
+                "grasp_offset_object_m": list(
+                    metadata.get("pose_config", {}).get(
+                        "grasp_offset_object_m", [0.0, 0.0, 0.0]
+                    )
+                ),
+                "positioning_method":
+                    "legacy_object_frame_grasp_center_plus_tcp_offset",
+                "event_driven_v2": event_meta,
+            })
+            return result
+
+        collector.run_episode = classify_v2_episode
+        collector.OUTPUT_LAYOUT = "by_type"
+        collector.EXPECTED_TOTAL_FRAMES = "variable (event-driven)"
+        collector.REQUIRE_ALL_THREE_CONTACT = False
+        collector.SAVE_OPTICAL_FLOW = True
+        collector.CAPTURE_HZ = event_cfg.capture_hz
+        collector.PRECONTACT_FRAMES = event_cfg.precontact_frames
+        collector.HOLD_FRAMES = event_cfg.hold_frames
         collector.XY_RANDOM_RANGE_M = 0.0
         collector.OBJECT_POSES = {"explicit_configs": [1.0, 0.0, 0.0, 0.0]}
         collector.POSE_STAGES = [{"name": "position_orientation_contact_sweep", "configs": configs}]
@@ -332,6 +419,14 @@ def run_prepared_object(args, prepared, output, *, collector=None) -> dict:
         collector.OUTPUT_LAYOUT = args.layout
         collector.TACTILE_IMAGE_NOISE_SIGMA = 0.0
         collector.RESUME_COMPLETED_EPISODES = args.resume
+        prior_complete = collector.episode_output_complete
+
+        def protocol_aware_complete(episode_dir, metadata, pose_cfg):
+            if metadata.get("event_driven_v2", {}).get("protocol_signature") != event_signature:
+                return False
+            return prior_complete(episode_dir, metadata, pose_cfg)
+
+        collector.episode_output_complete = protocol_aware_complete
         collector.EPISODE_SHARD_INDEX = 0
         collector.EPISODE_SHARD_COUNT = 1
         original_run = collector.run_episode
@@ -340,6 +435,8 @@ def run_prepared_object(args, prepared, output, *, collector=None) -> dict:
             result = original_run(*episode_args, **episode_kwargs)
             metadata = result.setdefault("metadata", {})
             metadata["source_obj"] = plan["source_obj"]
+            metadata["event_protocol_signature"] = event_signature
+            metadata["object_instance_index"] = plan.get("instance_index")
             if "category" in plan:
                 metadata["category"] = plan["category"]
                 metadata["category_index"] = plan["category_index"]
