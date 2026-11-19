@@ -8,18 +8,12 @@ from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-COLLECTION_DIR = PROJECT_ROOT / "scripts" / "collection"
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-if str(COLLECTION_DIR) not in sys.path:
-    sys.path.insert(0, str(COLLECTION_DIR))
-
-# Make direct execution from the project root reliable on Windows.
 # collector.py lives at <project>/scripts/collection/event_driven_v2/.
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+COLLECTION_DIR = PROJECT_ROOT / "scripts" / "collection"
+for _path in (PROJECT_ROOT, COLLECTION_DIR):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 try:
     from scripts.collection.event_driven_v2.core import (
@@ -340,7 +334,7 @@ def parse_args():
     p.add_argument("--collector", type=Path,
                    default=COLLECTION_DIR / "collect_underactuated_tactile_dataset_pose_sweep_v3.py")
     p.add_argument("--output", type=Path,
-                   default=Path(r"E:\project\p1\deepgelsight\event_driven_v2"))
+                   default=PROJECT_ROOT / "data" / "collected" / "event_driven_v2")
     p.add_argument("--episodes", type=int, default=5)
     p.add_argument("--seed", type=int, default=20261118)
     p.add_argument("--show-viewer", action="store_true")
@@ -438,7 +432,12 @@ def main():
             any(bool(x) for x in sample.get("contacts", []))
             for sample in samples
         )
-        stable_three = bool(result.get("all_contact", False))
+        stable_three = bool(
+            result.get("metadata", {}).get(
+                "stable_three_point_contact",
+                result.get("all_contact", False),
+            )
+        )
         if first_contact:
             result["valid"] = True
             result["reason"] = (
@@ -461,6 +460,14 @@ def main():
             metadata.get("pose_config", {}).get("grasp_offset_object_m", [0.0, 0.0, 0.0])
         )
         metadata["positioning_method"] = "legacy_object_frame_grasp_center_plus_tcp_offset"
+        event_metadata = dict(
+            getattr(collector, "_event_driven_last_metadata", {})
+        )
+        event_metadata["protocol_signature"] = getattr(
+            collector, "_event_protocol_signature", None
+        )
+        metadata["event_driven_v2"] = event_metadata
+        metadata["collection_version"] = "event_driven_v2"
         return result
 
     collector.run_episode = _v2_classify_run_episode
@@ -470,7 +477,7 @@ def main():
     # Keep partial-contact episodes as usable data. Three-finger stability
     # remains a success label, not an episode-admission requirement.
     collector.REQUIRE_ALL_THREE_CONTACT = False
-    collector.SAVE_OPTICAL_FLOW = False
+    collector.SAVE_OPTICAL_FLOW = not args.no_images
     collector.CAPTURE_HZ = cfg.capture_hz
     collector.PRECONTACT_FRAMES = cfg.precontact_frames
     collector.HOLD_FRAMES = cfg.hold_frames

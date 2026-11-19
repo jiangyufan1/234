@@ -48,7 +48,7 @@ class State(str, Enum):
 
 _ALLOWED = {
     State.WAIT_FIRST: {State.DYNAMIC, State.FAILED},
-    State.DYNAMIC: {State.CONFIRM, State.FAILED},
+    State.DYNAMIC: {State.CONFIRM, State.PARTIAL, State.FAILED},
     State.CONFIRM: {State.DYNAMIC, State.HOLD, State.PARTIAL, State.FAILED},
     State.HOLD: {State.DONE, State.PARTIAL, State.FAILED},
     State.PARTIAL: set(), State.DONE: set(), State.FAILED: set(),
