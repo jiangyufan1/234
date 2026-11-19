@@ -167,7 +167,7 @@
         </body>
       </body>
     </body>
-  <body name="mcb_part" pos="0.450000 0.000000 0.800000"><freejoint name="mcb_part_free" /><inertial pos="0 0 0" mass="0.05" diaginertia="1.1024539e-05 7.9780098e-06 1.7786804e-05" /><geom type="mesh" mesh="mcb_clamp_train_mesh" density="0" name="mcb_part_visual" rgba="0.20 0.55 0.78 1" contype="0" conaffinity="0" group="1" /><geom type="mesh" mesh="mcb_clamp_train_mesh" density="0" name="mcb_part_collision" rgba="0.15 0.45 0.80 0.18" contype="4" conaffinity="3" condim="4" friction="0.65 0.02 0.001" group="3" /><site name="mcb_part_center" type="sphere" pos="0 0 0" size="0.002" rgba="1 0 1 0.9" /></body></worldbody>
+  <body name="mcb_part" pos="0.450000 0.000000 0.800000"><freejoint name="mcb_part_free" /><inertial pos="0 0 0" mass="0.05" diaginertia="1.1024539e-05 7.9780098e-06 1.7786804e-05" /><geom type="mesh" mesh="mcb_clamp_train_mesh" density="0" name="mcb_part_visual" rgba="0.20 0.55 0.78 1" contype="0" conaffinity="0" group="1" pos="-0.0213816855001 -0.0231553253004 -0.00603911761004" /><geom type="mesh" mesh="mcb_clamp_train_mesh" density="0" name="mcb_part_collision" rgba="0.15 0.45 0.80 0.18" contype="4" conaffinity="3" condim="4" friction="0.65 0.02 0.001" group="3" pos="-0.0213816855001 -0.0231553253004 -0.00603911761004" /><site name="mcb_part_center" type="sphere" pos="0 0 0" size="0.002" rgba="1 0 1 0.9" /></body></worldbody>
 
   <actuator>
 

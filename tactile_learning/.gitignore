@@ -84,3 +84,6 @@ desktop.ini
 
 # Dataset - never upload to GitHub
 /data/
+
+# Required Taxim runtime calibration
+!simulation/taxim/src/TaximSensor/calibs/gelmap5.npy

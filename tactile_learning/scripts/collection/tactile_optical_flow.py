@@ -8,7 +8,7 @@ PNG RGB sequences are also supported: rgb_png/finger1/frame_0000.png, etc.
 The CLI recognizes per-episode directories and run-level directories grouped by
 format (rgb_png, signals_csv, flow_npz), without pairing different episodes.
 
-Output tactile_flow.npz contains float32 [T-1,H,W,2] for each finger. Channel 0
+Output tactile_flow.npz contains quantized int16 [T-1,H,W,2] for each finger; decode with flow_scale to recover float32 pixel displacement. Channel 0
 is dx (right positive); channel 1 is dy (down positive). Values are displacement
 in pixels per frame pair, NOT pixels/second. The aligned dt array permits callers
 to calculate velocity explicitly. Flow is estimated from the saved RGB images
@@ -40,8 +40,11 @@ import numpy as np
 
 
 FINGERS = ("finger1", "finger2", "finger3")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 FLOW_UNITS = "pixels/frame_pair"
+FLOW_STORAGE_DTYPE = "int16"
+FLOW_QUANTIZATION_SCALE = 64.0
+FLOW_QUANTIZATION_MAX_ERROR_PX = 0.5 / FLOW_QUANTIZATION_SCALE
 FARNEBACK_PARAMETERS = {
     "pyr_scale": 0.5,
     "levels": 3,
@@ -248,10 +251,26 @@ def _check_existing(
             if actual.dtype != expected.dtype or not np.array_equal(actual, expected):
                 raise ValueError(f"incorrect {name} alignment")
         expected_shape = tuple(expected_metadata["flow_shape_per_finger"])
+        if "flow_scale" not in archive.files:
+            raise ValueError("missing flow_scale")
+        scale = float(archive["flow_scale"].item())
+        if not np.isfinite(scale) or scale != FLOW_QUANTIZATION_SCALE:
+            raise ValueError("incorrect flow quantization scale")
         for finger in FINGERS:
             flow = archive[finger]
-            if flow.dtype != np.float32 or flow.shape != expected_shape or not np.isfinite(flow).all():
-                raise ValueError(f"invalid {finger} flow array")
+            if flow.dtype != np.int16 or flow.shape != expected_shape:
+                raise ValueError(f"invalid quantized {finger} flow array")
+
+
+def decode_quantized_flow(flow: np.ndarray, flow_scale: float) -> np.ndarray:
+    "Decode int16 pixel displacement to float32 pixel displacement."
+    values = np.asarray(flow)
+    scale = float(flow_scale)
+    if values.dtype != np.int16:
+        raise TypeError(f"Expected int16 flow, got {values.dtype}")
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError(f"Invalid flow_scale: {scale}")
+    return values.astype(np.float32) / np.float32(scale)
 
 
 def _atomic_savez(path: Path, arrays: dict[str, np.ndarray]) -> None:
@@ -314,7 +333,10 @@ def save_episode_flow(
         "frame_pairs": num_frames - 1,
         "rgb_shape_per_finger": [num_frames, height, width, 3],
         "flow_shape_per_finger": [num_frames - 1, height, width, 2],
-        "dtype": "float32",
+        "dtype": FLOW_STORAGE_DTYPE,
+        "flow_scale": FLOW_QUANTIZATION_SCALE,
+        "quantization": "int16 = round(float32_flow * flow_scale); decode by division",
+        "max_abs_quantization_error_px": FLOW_QUANTIZATION_MAX_ERROR_PX,
         "units": FLOW_UNITS,
         "time_units": "seconds",
         "channels": ["dx", "dy"],
@@ -358,7 +380,16 @@ def save_episode_flow(
                 raise RuntimeError(f"Invalid flow returned for {finger}, pair {index} -> {index + 1}.")
             flow_sequence[index] = flow
             previous_gray = next_gray
-        arrays[finger] = flow_sequence
+        scaled = np.rint(flow_sequence * FLOW_QUANTIZATION_SCALE)
+        if np.any(scaled < np.iinfo(np.int16).min) or np.any(
+            scaled > np.iinfo(np.int16).max
+        ):
+            raise OverflowError(
+                f"{finger} optical flow exceeds int16 range at scale "
+                f"{FLOW_QUANTIZATION_SCALE:g}; refusing lossy saturation."
+            )
+        arrays[finger] = scaled.astype(np.int16)
+    arrays["flow_scale"] = np.asarray(FLOW_QUANTIZATION_SCALE, dtype=np.float32)
     arrays["units"] = np.asarray(FLOW_UNITS)
     arrays["metadata"] = np.asarray(json.dumps(metadata, ensure_ascii=False, sort_keys=True))
     _assert_sources_unchanged(rgb_path, signals_path, sources)
