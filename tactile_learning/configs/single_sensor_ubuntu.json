@@ -4,8 +4,8 @@
     "height": 128, "width": 96, "static_frames": 16,
     "max_flow_frames": 15, "normalize_rgb": true,
     "contact_source": "all",
-    "flow_cache": "/data/datasets/tactile-video-pretrain/artifacts/flow",
-    "geometry_cache": "/data/datasets/tactile-video-pretrain/artifacts/geometry",
+    "flow_cache": "/data/datasets/touch-and-go/artifacts/flow",
+    "geometry_cache": "/data/datasets/touch-and-go/artifacts/geometry",
     "flow_backend": "farneback",
     "geometry_reference_body": "gripper_mount"
   },
