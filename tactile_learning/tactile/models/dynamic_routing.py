@@ -1,149 +1,105 @@
-"""Per-finger bidirectional dynamic pseudo-memory routing."""
+"""Multi-token bidirectional RGB/Flow routing for CTE-HGNN."""
 from __future__ import annotations
-
 import torch
 from torch import nn
 
 
 class DynamicPseudoRouter(nn.Module):
-    """Cross-modal pseudo-memory routing without collapsing finger identity.
+    """Cross-modal attention over separate Trend and Event tokens.
 
-    Inputs:
-        rgb, flow: [B,N,D]
-        masks:     [B,N]
-        edge_summary: optional [B,N,5]
-
-    Outputs:
-        routed RGB and Flow: [B,N,D]
+    Inputs rgb/flow: [B,N,2,D], masks: [B,N,2].
+    Outputs retain the original [B,N,D] CTE interface.
     """
-
     def __init__(self, dim: int, heads: int = 4, dropout: float = 0.1):
         super().__init__()
-
         if dim % heads:
             raise ValueError("dim must be divisible by heads")
-
         self.dim = dim
-
-        self.rgb_memory = nn.Parameter(torch.randn(1, 1, dim) * 0.02)
-        self.flow_memory = nn.Parameter(torch.randn(1, 1, dim) * 0.02)
-
-        self.rgb_input = nn.Linear(dim, dim)
-        self.flow_input = nn.Linear(dim, dim)
-
+        self.rgb_type = nn.Parameter(torch.randn(1, 1, 1, dim) * 0.02)
+        self.flow_type = nn.Parameter(torch.randn(1, 1, 1, dim) * 0.02)
         self.edge_projection = nn.Sequential(
-            nn.Linear(5, dim),
-            nn.GELU(),
-            nn.Linear(dim, dim),
+            nn.Linear(5, dim), nn.GELU(), nn.Linear(dim, dim)
         )
-
         self.cross_attention = nn.MultiheadAttention(
             dim, heads, dropout=dropout, batch_first=True
         )
-
         self.rgb_norm1 = nn.LayerNorm(dim)
         self.flow_norm1 = nn.LayerNorm(dim)
         self.rgb_norm2 = nn.LayerNorm(dim)
         self.flow_norm2 = nn.LayerNorm(dim)
-
         self.rgb_gate = nn.Linear(2 * dim, dim)
         self.flow_gate = nn.Linear(2 * dim, dim)
-
         self.rgb_dispatch = nn.Sequential(
-            nn.Linear(dim, dim), nn.GELU(), nn.Linear(dim, dim)
+            nn.Linear(dim, 2 * dim), nn.GELU(),
+            nn.Dropout(dropout), nn.Linear(2 * dim, dim)
         )
         self.flow_dispatch = nn.Sequential(
-            nn.Linear(dim, dim), nn.GELU(), nn.Linear(dim, dim)
+            nn.Linear(dim, 2 * dim), nn.GELU(),
+            nn.Dropout(dropout), nn.Linear(2 * dim, dim)
         )
-
         self.dropout = nn.Dropout(dropout)
 
-    def forward(
-        self,
-        rgb,
-        rgb_mask,
-        flow,
-        flow_mask,
-        edge_summary=None,
-    ):
-        if rgb.ndim != 3 or flow.ndim != 3:
-            raise ValueError("rgb and flow must have shape [B,N,D]")
+    @staticmethod
+    def _safe_padding(tokens, mask):
+        """Avoid all-masked attention rows for absent modalities."""
+        padding = ~mask
+        empty = ~mask.any(dim=1)
+        if empty.any():
+            tokens = tokens.clone()
+            padding = padding.clone()
+            tokens[empty, 0] = 0
+            padding[empty, 0] = False
+        return tokens, padding
 
-        if rgb.shape != flow.shape or rgb.shape[-1] != self.dim:
-            raise ValueError("RGB and Flow must have matching [B,N,D] shapes")
-
-        B, N, D = rgb.shape
-
-        if rgb_mask.shape != (B, N) or flow_mask.shape != (B, N):
-            raise ValueError("Modality masks must have shape [B,N]")
-
-        rm = rgb_mask.bool()
-        fm = flow_mask.bool()
-        both = (rm & fm).reshape(B * N, 1, 1)
-
-        rgb_safe = torch.where(rm.unsqueeze(-1), rgb, torch.zeros_like(rgb))
-        flow_safe = torch.where(fm.unsqueeze(-1), flow, torch.zeros_like(flow))
-
+    def forward(self, rgb, rgb_mask, flow, flow_mask, edge_summary=None):
+        if rgb.ndim != 4 or flow.ndim != 4:
+            raise ValueError("rgb and flow must be [B,N,2,D]")
+        B, N, Kr, D = rgb.shape
+        Kf = flow.shape[2]
+        if D != self.dim or flow.shape[:2] != (B, N) or flow.shape[-1] != D:
+            raise ValueError("RGB and Flow must share [B,N,D]")
+        if rgb_mask.shape != (B, N, Kr) or flow_mask.shape != (B, N, Kf):
+            raise ValueError("Token masks must match [B,N,K]")
+        rm, fm = rgb_mask.bool(), flow_mask.bool()
+        rs = torch.where(rm.unsqueeze(-1), rgb, torch.zeros_like(rgb))
+        fs = torch.where(fm.unsqueeze(-1), flow, torch.zeros_like(flow))
         if edge_summary is None:
             edge_summary = rgb.new_zeros(B, N, 5)
-        elif edge_summary.shape != (B, N, 5):
-            raise ValueError("edge_summary must have shape [B,N,5]")
+        if edge_summary.shape != (B, N, 5):
+            raise ValueError("edge_summary must be [B,N,5]")
+        edge = self.edge_projection(edge_summary).unsqueeze(2)
+        r = (rs + self.rgb_type + edge).reshape(B * N, Kr, D)
+        f = (fs + self.flow_type + edge).reshape(B * N, Kf, D)
+        rmask, fmask = rm.reshape(B * N, Kr), fm.reshape(B * N, Kf)
+        r, rpad = self._safe_padding(r, rmask)
+        f, fpad = self._safe_padding(f, fmask)
 
-        edge_embedding = self.edge_projection(edge_summary)
+        r_cross, _ = self.cross_attention(
+            r, f, f, key_padding_mask=fpad, need_weights=False
+        )
+        f_cross, _ = self.cross_attention(
+            f, r, r, key_padding_mask=rpad, need_weights=False
+        )
+        r_cross = r_cross.reshape(B, N, Kr, D)
+        f_cross = f_cross.reshape(B, N, Kf, D)
+        both = (rm.any(-1) & fm.any(-1)).unsqueeze(-1).unsqueeze(-1)
+        rmem = self.rgb_norm1(rs + self.dropout(r_cross) * both)
+        fmem = self.flow_norm1(fs + self.dropout(f_cross) * both)
 
-        # Each finger gets its own pair of modality memories.
-        rgb_memory = (
-            self.rgb_memory.expand(B, N, D)
-            + self.rgb_input(rgb_safe)
-            + edge_embedding
-        ).reshape(B * N, 1, D)
+        rg = torch.sigmoid(self.rgb_gate(torch.cat((rs, rmem), dim=-1)))
+        fg = torch.sigmoid(self.flow_gate(torch.cat((fs, fmem), dim=-1)))
+        rout = self.rgb_norm2(rs + rg * self.rgb_dispatch(rmem))
+        fout = self.flow_norm2(fs + fg * self.flow_dispatch(fmem))
+        rout = torch.where(rm.unsqueeze(-1), rout, torch.zeros_like(rout))
+        fout = torch.where(fm.unsqueeze(-1), fout, torch.zeros_like(fout))
 
-        flow_memory = (
-            self.flow_memory.expand(B, N, D)
-            + self.flow_input(flow_safe)
-            + edge_embedding
-        ).reshape(B * N, 1, D)
-
-        # Two directions of cross-modal memory exchange.
-        rgb_cross, _ = self.cross_attention(
-            rgb_memory, flow_memory, flow_memory, need_weights=False
-        )
-        flow_cross, _ = self.cross_attention(
-            flow_memory, rgb_memory, rgb_memory, need_weights=False
-        )
-
-        rgb_memory = self.rgb_norm1(
-            rgb_memory + self.dropout(rgb_cross) * both
-        )
-        flow_memory = self.flow_norm1(
-            flow_memory + self.dropout(flow_cross) * both
-        )
-
-        rgb_memory = rgb_memory.reshape(B, N, D)
-        flow_memory = flow_memory.reshape(B, N, D)
-
-        rgb_gate = torch.sigmoid(
-            self.rgb_gate(torch.cat([rgb_safe, rgb_memory], dim=-1))
-        )
-        flow_gate = torch.sigmoid(
-            self.flow_gate(torch.cat([flow_safe, flow_memory], dim=-1))
-        )
-
-        routed_rgb = self.rgb_norm2(
-            rgb_safe + rgb_gate * self.rgb_dispatch(rgb_memory)
-        )
-        routed_flow = self.flow_norm2(
-            flow_safe + flow_gate * self.flow_dispatch(flow_memory)
-        )
-
-        routed_rgb = torch.where(
-            rm.unsqueeze(-1), routed_rgb, torch.zeros_like(routed_rgb)
-        )
-        routed_flow = torch.where(
-            fm.unsqueeze(-1), routed_flow, torch.zeros_like(routed_flow)
-        )
-
-        return routed_rgb, routed_flow, {
-            "rgb_gate": rgb_gate,
-            "flow_gate": flow_gate,
+        # Aggregate Trend/Event only after cross-modal interaction, preserving
+        # the existing [B,N,D] interface expected by CTE-HGNN downstream.
+        rden = rm.sum(dim=2, keepdim=True).clamp_min(1).to(rout.dtype)
+        fden = fm.sum(dim=2, keepdim=True).clamp_min(1).to(fout.dtype)
+        rout = rout.sum(dim=2) / rden
+        fout = fout.sum(dim=2) / fden
+        return rout, fout, {
+            "rgb_gate": rg.mean(dim=2),
+            "flow_gate": fg.mean(dim=2),
         }

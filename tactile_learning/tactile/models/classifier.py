@@ -126,7 +126,7 @@ def create_model(num_classes: int, config: Mapping | None = None) -> nn.Module:
         from .cte_model import CTETactileClassifier
         return CTETactileClassifier(num_classes, config)
 
-    if architecture == "st_cte_hgnn":
+    if architecture in ("st_cte_hgnn", "st_cte_hgnn_optimized"):
         from .st_cte_model import STCTETactileClassifier
         return STCTETactileClassifier(num_classes, config)
 

@@ -441,16 +441,16 @@ class CTEHGNN(nn.Module):
             propagated["flow_event"], effective_flow_mask
         )
 
-        rgb_nodes = (rt_last + re_last) * 0.5
-        flow_nodes = (ft_last + fe_last) * 0.5
-
+        # Preserve Trend and Event as separate tokens during cross-modal routing.
+        rgb_tokens = torch.stack((rt_last, re_last), dim=2)
+        flow_tokens = torch.stack((ft_last, fe_last), dim=2)
+        rgb_token_mask = effective_rgb_mask.any(dim=-1, keepdim=True).expand(-1, -1, 2)
+        flow_token_mask = effective_flow_mask.any(dim=-1, keepdim=True).expand(-1, -1, 2)
         edge_summary = self._edge_summary(graph)
 
         routed_rgb, routed_flow, route_aux = self.router(
-            rgb_nodes,
-            effective_rgb_mask.any(dim=-1),
-            flow_nodes,
-            effective_flow_mask.any(dim=-1),
+            rgb_tokens, rgb_token_mask,
+            flow_tokens, flow_token_mask,
             edge_summary=edge_summary,
         )
 
