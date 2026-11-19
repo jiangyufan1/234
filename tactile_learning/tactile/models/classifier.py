@@ -126,6 +126,10 @@ def create_model(num_classes: int, config: Mapping | None = None) -> nn.Module:
         from .cte_model import CTETactileClassifier
         return CTETactileClassifier(num_classes, config)
 
+    if architecture == "st_cte_hgnn":
+        from .st_cte_model import STCTETactileClassifier
+        return STCTETactileClassifier(num_classes, config)
+
     if architecture != "baseline":
         raise ValueError(f"Unknown model architecture: {architecture!r}")
 

@@ -336,6 +336,7 @@ class CTEHGNN(nn.Module):
         flow_mask,
         query_time=None,
         return_aux=True,
+        return_features=False,
     ):
         if rgb.ndim != 4 or flow.ndim != 4:
             raise ValueError("rgb and flow must be [B,N,T,D]")
@@ -473,14 +474,13 @@ class CTEHGNN(nn.Module):
         ).clamp_min(1).to(combined.dtype)
 
         logits = self.head(pooled)
-
-        if not return_aux:
-            return logits
-
         aux = {
             **ro.losses,
             **{f"flow_{k}": v for k, v in fo.losses.items()},
             **route_aux,
         }
-
+        if return_features:
+            return (pooled, aux) if return_aux else pooled
+        if not return_aux:
+            return logits
         return logits, aux

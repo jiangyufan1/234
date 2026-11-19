@@ -19,6 +19,8 @@ DEFAULTS = {
         "architecture": "baseline",
         "cte_num_atoms": 8,
         "cte_sigma_seconds": 0.03,
+        "spatial_dim": 128,
+        "spatial_graph_layers": 2,
         "backbone": "resnet18", "pretrained": False,
         "use_flow": True, "use_alignment": True,
         "fusion": "graph", "single_finger": 0,
@@ -35,6 +37,17 @@ DEFAULTS = {
 }
 
 VARIANTS = {
+    "st_cte_hgnn": {
+        "model": {
+            "architecture": "st_cte_hgnn",
+            "use_flow": True,
+            "use_alignment": False,
+            "fusion": "graph",
+            "use_edge_geometry": False,
+            "use_local_graph": False,
+        },
+        "training": {"temporal_shuffle": False},
+    },
     "cte_hgnn": {
         "model": {
             "architecture": "cte_hgnn",
@@ -125,7 +138,7 @@ def resolve_config(config):
     if training["learning_rate"] <= 0 or training["weight_decay"] < 0:
         raise ValueError("Invalid optimizer settings")
 
-    if model.get("architecture", "baseline") not in ("baseline", "cte_hgnn"):
+    if model.get("architecture", "baseline") not in ("baseline", "cte_hgnn", "st_cte_hgnn"):
         raise ValueError("Unknown model architecture")
 
     if training.get("cte_aux_weight", 1.0) < 0:
