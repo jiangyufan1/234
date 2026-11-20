@@ -36,10 +36,11 @@ def _run_forward_backward(device, use_amp):
     with amp_context:
         episode, per_sensor = model(rgb, mask)
 
-    assert episode.shape == (2, 1, 32)
+    assert episode.shape == (2, 32)
     assert per_sensor.shape == (2, 1, 32)
     assert torch.isfinite(episode).all()
     assert torch.isfinite(per_sensor).all()
+    assert torch.count_nonzero(episode[1]) == 0
 
     loss = episode.float().square().mean() + per_sensor.float().square().mean()
     loss.backward()
