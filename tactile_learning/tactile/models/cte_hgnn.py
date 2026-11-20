@@ -19,12 +19,22 @@ RELATIONS = (
 
 
 def masked_softmax(scores, mask, dim):
-    """Numerically safe softmax that returns zero for all-invalid rows."""
+    """FP32 masked softmax; all-invalid rows return exact zeros.
+
+    The graph attention logits can be FP16 under autocast. Performing masking,
+    softmax and normalization in FP32 avoids half-precision sentinel/epsilon
+    underflow and keeps empty rows finite.
+    """
     mask = mask.bool()
-    scores = scores.masked_fill(~mask, torch.finfo(scores.dtype).min)
-    weights = torch.softmax(scores, dim=dim)
-    weights = weights * mask.to(weights.dtype)
-    return weights / weights.sum(dim=dim, keepdim=True).clamp_min(1e-12)
+    scores_fp32 = scores.float()
+    scores_fp32 = scores_fp32.masked_fill(
+        ~mask, torch.finfo(torch.float32).min
+    )
+    weights = torch.softmax(scores_fp32, dim=dim)
+    weights = weights * mask.to(torch.float32)
+    denom = weights.sum(dim=dim, keepdim=True)
+    weights = weights / denom.clamp_min(torch.finfo(torch.float32).eps)
+    return weights.to(dtype=scores.dtype)
 
 
 class BidirectionalRelationMessage(nn.Module):
@@ -69,10 +79,13 @@ class BidirectionalRelationMessage(nn.Module):
             "bnid,bnjd->bnij", q_rgb, k_flow
         ) / self.scale
 
-        scores = scores + self.edge_bias(edge_attr).squeeze(-1)
-
-        # Temporal compatibility explicitly influences attention.
-        compatibility = edge_attr[..., 4].clamp_min(1e-8)
+        # Keep attention logits and the compatibility logarithm in FP32.
+        # Under autocast, exp(-distance^2 / (2 sigma^2)) in edge_attr can
+        # underflow to exact zero in FP16. Clamping to 1e-8 *in FP16* is not
+        # reliable because that floor is below the normal half range; log(0)
+        # can then inject -inf and NaN gradients into the attention branch.
+        scores = scores.float() + self.edge_bias(edge_attr).squeeze(-1).float()
+        compatibility = edge_attr[..., 4].float().clamp_min(1e-8)
         scores = scores + compatibility.log()
 
         # RGB receives messages from Flow.
