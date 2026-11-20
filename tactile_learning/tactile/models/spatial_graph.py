@@ -77,10 +77,19 @@ class TactileSpatialGraphBranch(nn.Module):
         nw=torch.softmax(self.node_attention(nodes).squeeze(-1),dim=-1)
         frame=(nodes*nw.unsqueeze(-1)).sum(1)
         allf=rgb.new_zeros(b*n*t,self.spatial_dim).index_copy(0,ids,frame).reshape(b,n,t,self.spatial_dim)
-        scores=self.temporal_attention(allf).squeeze(-1).masked_fill(~valid,torch.finfo(allf.dtype).min)
-        weights=torch.softmax(scores,dim=-1)*valid.to(allf.dtype)
-        weights=weights/weights.sum(-1,keepdim=True).clamp_min(1e-8)
-        per=(allf*weights.unsqueeze(-1)).sum(2)
+        # Autocast may produce FP16 attention scores even though allf keeps
+        # the input RGB dtype (normally FP32). Mask sentinels must match the
+        # score dtype; using finfo(allf.dtype).min here can overflow when
+        # scores is FP16. Perform this small temporal softmax in FP32 for
+        # stable masking and normalization, including all-invalid sensor rows.
+        scores = self.temporal_attention(allf).squeeze(-1).float()
+        scores = scores.masked_fill(~valid, torch.finfo(scores.dtype).min)
+        weights = torch.softmax(scores, dim=-1)
+        weights = weights * valid.to(weights.dtype)
+        weights = weights / weights.sum(dim=-1, keepdim=True).clamp_min(
+            torch.finfo(weights.dtype).eps
+        )
+        per = (allf.float() * weights.unsqueeze(-1)).sum(dim=2)
         per=torch.where(valid.any(2).unsqueeze(-1),per,torch.zeros_like(per))
         per=self.sensor_projection(per)
         sm=valid.any(-1)
