@@ -146,13 +146,67 @@ def run_epoch(model, loader, device, classes, config, optimizer=None, scaler=Non
             predictions.extend(prediction)
             total_count += len(truth)
             total_loss += float(loss.detach()) * len(truth)
-            records.extend({"episode_id": eid, "target": y, "prediction": p, "confidence": c}
-                for eid, y, p, c in zip(batch["episode_id"], truth, prediction, confidence))
+            if not training:
+                probability_rows = probabilities.cpu().tolist()
+                records.extend(
+                    {"episode_id": eid, "target": y, "prediction": p, "confidence": c,
+                     "probabilities": prob}
+                    for eid, y, p, c, prob in zip(
+                        batch["episode_id"], truth, prediction, confidence, probability_rows
+                    )
+                )
             if training and step % config["training"]["log_every"] == 0:
                 print(f"  batch {step}/{len(loader)} loss={total_loss/total_count:.5f}", flush=True)
     metrics = classification_metrics(targets, predictions, classes)
     metrics.update(loss=total_loss/total_count, seconds=time.monotonic()-started)
     return metrics, records
+
+
+def measure_model_efficiency(model, loader, device, config, warmup=5, repeats=30):
+    # Model-only latency, parameter count and peak CUDA memory.
+    model.eval()
+    total_params = sum(p.numel() for p in model.parameters())
+    sample = move_batch(next(iter(loader)), device)
+    use_amp = bool(config["training"]["amp"] and device.type == "cuda")
+
+    def infer():
+        with torch.autocast(device_type=device.type, enabled=use_amp):
+            return model(sample)
+
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+        torch.cuda.reset_peak_memory_stats(device)
+        baseline = torch.cuda.memory_allocated(device)
+    else:
+        baseline = 0
+    with torch.inference_mode():
+        for _ in range(warmup):
+            infer()
+        if device.type == "cuda":
+            torch.cuda.synchronize(device)
+        started = time.perf_counter()
+        for _ in range(repeats):
+            infer()
+        if device.type == "cuda":
+            torch.cuda.synchronize(device)
+        elapsed = time.perf_counter() - started
+    batch_size = int(sample["label"].shape[0])
+    peak = torch.cuda.max_memory_allocated(device) if device.type == "cuda" else None
+    return {
+        "total_parameters": int(total_params),
+        "trainable_parameters": int(sum(p.numel() for p in model.parameters() if p.requires_grad)),
+        "parameter_millions": float(total_params / 1e6),
+        "batch_size": batch_size,
+        "warmup_iterations": int(warmup),
+        "measured_iterations": int(repeats),
+        "inference_batch_latency_ms": float(elapsed * 1000 / repeats),
+        "inference_sample_latency_ms": float(elapsed * 1000 / repeats / batch_size),
+        "precision": "amp" if use_amp else "fp32",
+        "peak_gpu_memory_gb": float(peak / 1024**3) if peak is not None else None,
+        "incremental_peak_gpu_memory_gb": float(max(0, peak - baseline) / 1024**3) if peak is not None else None,
+        "flops": None,
+        "flops_note": "Not estimated: no validated FLOPs profiler is configured.",
+    }
 
 
 def dataset_signature(index_path, split_path):
@@ -268,8 +322,10 @@ def evaluate(checkpoint, output, device_name="auto", partition="test", num_worke
     model = create_model(len(state["classes"]), model_config).to(device)
     model.load_state_dict(state["model"])
     metrics, records = run_epoch(model, loader, device, state["classes"], config, drop_fingers=drop_fingers)
+    efficiency = measure_model_efficiency(model, loader, device, config)
     metrics.update(partition=partition, checkpoint=str(Path(checkpoint).resolve()),
-                   drop_fingers=[i+1 for i in drop_fingers], seed=config["seed"])
+                   drop_fingers=[i+1 for i in drop_fingers], seed=config["seed"],
+                   efficiency=efficiency)
     # Pose/position annotations are used only for reporting, never model inputs.
     episodes = {e["id"]: e for e in read_json(index_path)["episodes"]}
     by_pose = {}
@@ -284,9 +340,23 @@ def evaluate(checkpoint, output, device_name="auto", partition="test", num_worke
     output.mkdir(parents=True, exist_ok=True)
     write_json(output / "metrics.json", metrics)
     with (output / "predictions.csv").open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=["episode_id", "target", "prediction", "confidence"])
+        writer = csv.DictWriter(
+            f, fieldnames=["episode_id", "target", "prediction", "confidence", "probabilities"]
+        )
         writer.writeheader()
-        writer.writerows(records)
+        csv_records = []
+        for record in records:
+            row = dict(record)
+            row["probabilities"] = json.dumps(row["probabilities"], separators=(",", ":"))
+            csv_records.append(row)
+        writer.writerows(csv_records)
+    np.savez_compressed(
+        output / "probabilities.npz",
+        probabilities=np.asarray([r["probabilities"] for r in records], dtype=np.float32),
+        targets=np.asarray([r["target"] for r in records], dtype=np.int64),
+        classes=np.asarray(state["classes"]),
+    )
+    write_json(output / "efficiency.json", efficiency)
     with (output / "confusion_matrix.csv").open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         writer.writerow(["true / predicted", *state["classes"]])
